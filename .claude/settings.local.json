@@ -4,7 +4,9 @@
       "PowerShell(cd \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\"; Get-ChildItem -Force | ForEach-Object { \"$\\($_.Name\\) [$\\($_.PSProvider.Name\\)]\" })",
       "Bash(mkdir -p \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\.claude\\\\skills\\\\setup-project\")",
       "Bash(mkdir -p \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\.claude\\\\skills\\\\git-workflow\")",
-      "PowerShell(where.exe gh 2>$null; if \\(-not $?\\) { \"gh not found\" })"
+      "PowerShell(where.exe gh 2>$null; if \\(-not $?\\) { \"gh not found\" })",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\src\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object FullName)",
+      "PowerShell(Copy-Item \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\.env.example\" \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\.env.local\")"
     ]
   }
 }

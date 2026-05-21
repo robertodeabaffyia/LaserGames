@@ -6,6 +6,7 @@ const NAV = [
   { href: "/dashboard/paquetes", label: "Paquetes", icon: "📦" },
   { href: "/dashboard/eventos", label: "Eventos", icon: "🎉" },
   { href: "/dashboard/empleados", label: "Empleados", icon: "👤" },
+  { href: "/dashboard/caja", label: "Caja", icon: "💰" },
 ];
 
 export default function DashboardLayout({

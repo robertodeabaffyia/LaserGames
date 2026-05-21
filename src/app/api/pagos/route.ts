@@ -127,6 +127,21 @@ export async function POST(request: NextRequest) {
       .eq("id", body.evento_id);
   }
 
+  // Auto-create ingreso movimiento_caja for this payment
+  const fechaPago = (body.fecha_pago ?? new Date().toISOString()).slice(0, 10);
+  await supabase.from("movimientos_caja").insert({
+    usuario_id: user.id,
+    tipo: "ingreso",
+    categoria: "pago_evento",
+    descripcion: `Pago evento (${body.metodo}) — evento ${body.evento_id}`,
+    monto: body.monto,
+    fecha: fechaPago,
+    es_repetible: false,
+    frecuencia_repeticion: null,
+    evento_id: body.evento_id,
+    empleado_id: null,
+  });
+
   return NextResponse.json(
     { ...pago, evento_estado: nuevoEstado ?? evento.estado },
     { status: 201 }

@@ -92,7 +92,8 @@ describe("POST /api/pagos", () => {
       .mockReturnValueOnce(chain({ data: mockConfig, error: null }))          // fetch config
       .mockReturnValueOnce(chain({ data: [], error: null }))                  // existing pagos
       .mockReturnValueOnce(chain({ data: mockPago, error: null }))            // insert pago
-      .mockReturnValueOnce(chain({ data: null, error: null }));               // update evento (confirmado)
+      .mockReturnValueOnce(chain({ data: null, error: null }))                // update evento (confirmado)
+      .mockReturnValueOnce(chain({ data: null, error: null }));               // insert movimiento_caja
 
     const res = await POST(postReq(validBody));
     expect(res.status).toBe(201);
@@ -110,7 +111,8 @@ describe("POST /api/pagos", () => {
       .mockReturnValueOnce(chain({ data: mockConfig, error: null }))           // fetch config
       .mockReturnValueOnce(chain({ data: existingPagos, error: null }))       // existing pagos
       .mockReturnValueOnce(chain({ data: { ...mockPago, monto: 1000 }, error: null })) // insert
-      .mockReturnValueOnce(updateChain);                                        // update evento
+      .mockReturnValueOnce(updateChain)                                         // update evento
+      .mockReturnValueOnce(chain({ data: null, error: null }));                // insert movimiento_caja
 
     const res = await POST(postReq({ evento_id: "ev-1", monto: 1000, metodo: "efectivo" }));
     expect(res.status).toBe(201);
@@ -125,7 +127,8 @@ describe("POST /api/pagos", () => {
       .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
       .mockReturnValueOnce(chain({ data: configNoSeña, error: null }))
       .mockReturnValueOnce(chain({ data: [], error: null }))
-      .mockReturnValueOnce(chain({ data: mockPago, error: null }));
+      .mockReturnValueOnce(chain({ data: mockPago, error: null }))
+      .mockReturnValueOnce(chain({ data: null, error: null }));  // insert movimiento_caja
     // No update call expected (monto_seña = 0 disables seña logic)
 
     const res = await POST(postReq({ evento_id: "ev-1", monto: 500, metodo: "efectivo" }));
@@ -142,7 +145,8 @@ describe("POST /api/pagos", () => {
       .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
       .mockReturnValueOnce(chain({ data: [], error: null }))
       .mockReturnValueOnce(insertChain)
-      .mockReturnValueOnce(chain({ data: null, error: null })); // update evento
+      .mockReturnValueOnce(chain({ data: null, error: null }))  // update evento
+      .mockReturnValueOnce(chain({ data: null, error: null })); // insert movimiento_caja
 
     await POST(postReq({ evento_id: "ev-1", monto: 1000, metodo: "tarjeta", tipo_tarjeta: "VISA", num_cuotas: 3 }));
 
@@ -207,5 +211,28 @@ describe("POST /api/pagos", () => {
     });
     const res = await POST(badReq);
     expect(res.status).toBe(400);
+  });
+
+  it("creates movimiento_caja ingreso after successful pago insert", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    const movimientoChain = chain({ data: null, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(chain({ data: [], error: null }))
+      .mockReturnValueOnce(chain({ data: mockPago, error: null }))
+      .mockReturnValueOnce(chain({ data: null, error: null }))   // update evento
+      .mockReturnValueOnce(movimientoChain);                     // movimiento_caja insert
+
+    const res = await POST(postReq(validBody));
+    expect(res.status).toBe(201);
+    expect(movimientoChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: "ingreso",
+        categoria: "pago_evento",
+        evento_id: "ev-1",
+        monto: 1000,
+      })
+    );
   });
 });

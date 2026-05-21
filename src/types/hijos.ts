@@ -3,6 +3,7 @@ export interface Hijo {
   cliente_id: string;
   nombre: string;
   fecha_nacimiento: string; // ISO date "YYYY-MM-DD"
+  colegio: string | null;
   notas: string | null;
   created_at: string;
   updated_at: string;

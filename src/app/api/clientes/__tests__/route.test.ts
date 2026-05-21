@@ -12,7 +12,7 @@ jest.mock("@/lib/supabase/server", () => ({
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c: any = {};
-  for (const m of ["select", "insert", "update", "delete", "eq", "or", "in", "order", "single", "limit"]) {
+  for (const m of ["select", "insert", "update", "delete", "eq", "or", "in", "order", "single", "limit", "filter"]) {
     c[m] = jest.fn().mockReturnValue(c);
   }
   c.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
@@ -55,6 +55,16 @@ describe("GET /api/clientes", () => {
     expect(c.or).toHaveBeenCalledWith(
       "nombre.ilike.%ana%,telefono.ilike.%ana%,email.ilike.%ana%"
     );
+  });
+
+  it("applies .filter() when colegio param is present", async () => {
+    const c = chain({ data: [], error: null });
+    mockFrom.mockReturnValue(c);
+
+    const req = new NextRequest("http://localhost/api/clientes?colegio=San+José");
+    await GET(req);
+
+    expect(c.filter).toHaveBeenCalledWith("hijos.colegio", "ilike", "%San José%");
   });
 
   it("returns 500 on database error", async () => {

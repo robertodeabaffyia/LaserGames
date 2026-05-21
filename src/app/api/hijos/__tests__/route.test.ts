@@ -33,6 +33,7 @@ const mockHijo = {
   cliente_id: "cli-1",
   nombre: "Sofía",
   fecha_nacimiento: "2018-06-01",
+  colegio: null,
   notas: null,
 };
 
@@ -62,6 +63,15 @@ describe("POST /api/hijos", () => {
   it("returns 400 when fecha_nacimiento is missing", async () => {
     const res = await POST(req({ cliente_id: "cli-1", nombre: "Sofía" }));
     expect(res.status).toBe(400);
+  });
+
+  it("returns 201 with colegio when provided", async () => {
+    const hijoConColegio = { ...mockHijo, colegio: "Colegio San José" };
+    mockFrom.mockReturnValue(chain({ data: hijoConColegio, error: null }));
+
+    const res = await POST(req({ cliente_id: "cli-1", nombre: "Sofía", fecha_nacimiento: "2018-06-01", colegio: "Colegio San José" }));
+    expect(res.status).toBe(201);
+    expect((await res.json()).colegio).toBe("Colegio San José");
   });
 
   it("returns 400 on DB error", async () => {

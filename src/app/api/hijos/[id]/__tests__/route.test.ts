@@ -35,6 +35,7 @@ const mockHijo = {
   cliente_id: "cli-1",
   nombre: "Sofía",
   fecha_nacimiento: "2018-06-01",
+  colegio: null,
 };
 
 beforeEach(() => jest.clearAllMocks());
@@ -47,6 +48,15 @@ describe("PUT /api/hijos/[id]", () => {
     const res = await PUT(req("PUT", { nombre: "Sofía M." }), params);
     expect(res.status).toBe(200);
     expect((await res.json()).nombre).toBe("Sofía M.");
+  });
+
+  it("returns 200 when updating colegio", async () => {
+    const updated = { ...mockHijo, colegio: "Colegio Las Américas" };
+    mockFrom.mockReturnValue(chain({ data: updated, error: null }));
+
+    const res = await PUT(req("PUT", { colegio: "Colegio Las Américas" }), params);
+    expect(res.status).toBe(200);
+    expect((await res.json()).colegio).toBe("Colegio Las Américas");
   });
 
   it("returns 404 when not found", async () => {

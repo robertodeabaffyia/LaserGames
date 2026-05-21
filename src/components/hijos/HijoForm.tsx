@@ -16,6 +16,7 @@ export default function HijoForm({ clienteId, hijo, onClose }: HijoFormProps) {
   const [fechaNacimiento, setFechaNacimiento] = useState(
     hijo?.fecha_nacimiento ?? ""
   );
+  const [colegio, setColegio] = useState(hijo?.colegio ?? "");
   const [notas, setNotas] = useState(hijo?.notas ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +30,7 @@ export default function HijoForm({ clienteId, hijo, onClose }: HijoFormProps) {
       cliente_id: clienteId,
       nombre,
       fecha_nacimiento: fechaNacimiento,
+      colegio: colegio || null,
       notas: notas || null,
     };
 
@@ -39,7 +41,11 @@ export default function HijoForm({ clienteId, hijo, onClose }: HijoFormProps) {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isEdit ? { nombre, fecha_nacimiento: fechaNacimiento, notas: notas || null } : payload),
+        body: JSON.stringify(
+          isEdit
+            ? { nombre, fecha_nacimiento: fechaNacimiento, colegio: colegio || null, notas: notas || null }
+            : payload
+        ),
       });
 
       if (!res.ok) {
@@ -97,6 +103,17 @@ export default function HijoForm({ clienteId, hijo, onClose }: HijoFormProps) {
           className="input"
           value={fechaNacimiento}
           onChange={(e) => setFechaNacimiento(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <label className="label">Colegio</label>
+        <input
+          type="text"
+          className="input"
+          placeholder="Nombre del colegio…"
+          value={colegio}
+          onChange={(e) => setColegio(e.target.value)}
         />
       </div>
 

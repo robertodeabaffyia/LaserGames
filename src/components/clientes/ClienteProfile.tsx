@@ -125,6 +125,7 @@ export default function ClienteProfile({ clienteId }: ClienteProfileProps) {
                         month: "short",
                         year: "numeric",
                       })}
+                      {h.colegio && <> · {h.colegio}</>}
                     </p>
                   </div>
                   <div className="flex gap-2">

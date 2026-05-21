@@ -7,15 +7,21 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
 
+  const colegio = searchParams.get("colegio");
+
   let query = supabase
     .from("clientes")
-    .select("*, hijos(id, nombre, fecha_nacimiento)")
+    .select("*, hijos(id, nombre, fecha_nacimiento, colegio)")
     .order("nombre", { ascending: true });
 
   if (q) {
     query = query.or(
       `nombre.ilike.%${q}%,telefono.ilike.%${q}%,email.ilike.%${q}%`
     );
+  }
+
+  if (colegio) {
+    query = query.filter("hijos.colegio", "ilike", `%${colegio}%`);
   }
 
   const { data, error } = await query;

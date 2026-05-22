@@ -6,15 +6,36 @@ import PagoForm from "@/components/pagos/PagoForm";
 import HistorialPagos from "@/components/pagos/HistorialPagos";
 import type { EventoConRelaciones } from "@/types/eventos";
 import type { Pago } from "@/types/pagos";
+import { montoEfectivo, calcularEstadoPago } from "@/types/pagos";
+
+// ── Colour maps ────────────────────────────────────────────────────────────────
 
 const ESTADO_COLORS: Record<string, string> = {
-  pendiente: "text-yellow-400",
-  cotizacion: "text-blue-400",
-  confirmado: "text-green-400",
-  en_curso: "text-purple-400",
-  completado: "text-gray-300",
-  cancelado: "text-red-400",
+  pendiente:  "text-yellow-400 bg-yellow-900/20 border-yellow-700",
+  cotizacion: "text-blue-400 bg-blue-900/20 border-blue-700",
+  confirmado: "text-green-400 bg-green-900/20 border-green-700",
+  en_curso:   "text-purple-400 bg-purple-900/20 border-purple-700",
+  completado: "text-gray-300 bg-gray-800/50 border-gray-600",
+  cancelado:  "text-red-400 bg-red-900/20 border-red-700",
 };
+
+const PAGO_STATUS_COLORS = {
+  pagado:   "text-green-400",
+  con_sena: "text-yellow-400",
+  sin_pago: "text-red-400",
+} as const;
+
+const PAGO_STATUS_LABELS = {
+  pagado:   "✅ Pagado",
+  con_sena: "🟡 Seña confirmada",
+  sin_pago: "🔴 Sin pago",
+} as const;
+
+// ── Tab type ──────────────────────────────────────────────────────────────────
+
+type Tab = "detalle" | "pagos";
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function EventoDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,25 +43,39 @@ export default function EventoDetailPage() {
 
   const [evento, setEvento] = useState<EventoConRelaciones | null>(null);
   const [pagos, setPagos] = useState<Pago[]>([]);
+  const [montoSena, setMontoSena] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [showPagoForm, setShowPagoForm] = useState(false);
+  const [showPagoModal, setShowPagoModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("detalle");
 
   const loadEvento = useCallback(async () => {
-    const [evRes, pagoRes] = await Promise.all([
+    const [evRes, pagoRes, configRes] = await Promise.all([
       fetch(`/api/eventos/${id}`),
       fetch(`/api/pagos?evento_id=${id}`),
+      fetch("/api/configuracion"),
     ]);
-    if (!evRes.ok) { router.push("/dashboard/eventos"); return; }
-    const [ev, ps] = await Promise.all([evRes.json(), pagoRes.json()]);
+
+    if (!evRes.ok) {
+      router.push("/dashboard/eventos");
+      return;
+    }
+
+    const [ev, ps, cfg] = await Promise.all([
+      evRes.json(),
+      pagoRes.json(),
+      configRes.ok ? configRes.json() : null,
+    ]);
+
     setEvento(ev);
     setPagos(ps ?? []);
+    setMontoSena(cfg?.monto_seña ?? 0);
     setLoading(false);
   }, [id, router]);
 
   useEffect(() => { loadEvento(); }, [loadEvento]);
 
   async function handleDeletePago(pagoId: string) {
-    if (!confirm("¿Eliminar este pago?")) return;
+    if (!confirm("¿Eliminar este pago? Esta acción no se puede deshacer.")) return;
     await fetch(`/api/pagos/${pagoId}`, { method: "DELETE" });
     loadEvento();
   }
@@ -53,11 +88,12 @@ export default function EventoDetailPage() {
     );
   }
 
-  const totalPagado = pagos.reduce((s, p) => s + p.monto, 0);
-  const saldo = evento.precio_total - totalPagado;
+  const totalPagado = pagos.reduce((s, p) => s + montoEfectivo(p), 0);
+  const saldo = Math.max(0, evento.precio_total - totalPagado);
+  const estadoPago = calcularEstadoPago(totalPagado, evento.precio_total, montoSena);
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-4xl space-y-6">
       {/* Back */}
       <button
         onClick={() => router.back()}
@@ -66,8 +102,8 @@ export default function EventoDetailPage() {
         ← Volver
       </button>
 
-      {/* Header */}
-      <div className="flex items-start justify-between">
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-white">{evento.nombre_festejado}</h1>
           <p className="text-sm text-gray-400 mt-0.5">
@@ -80,74 +116,155 @@ export default function EventoDetailPage() {
               minute: "2-digit",
             })}
           </p>
+          <p className={`text-sm font-semibold mt-1.5 ${PAGO_STATUS_COLORS[estadoPago]}`}>
+            {PAGO_STATUS_LABELS[estadoPago]}
+          </p>
         </div>
+
         <span
-          className={`text-sm font-semibold capitalize ${ESTADO_COLORS[evento.estado] ?? "text-gray-400"}`}
+          className={`self-start text-xs font-semibold capitalize px-3 py-1.5 rounded-full border ${
+            ESTADO_COLORS[evento.estado] ?? "text-gray-400 border-gray-600"
+          }`}
         >
           {evento.estado.replace("_", " ")}
         </span>
       </div>
 
-      {/* Details card */}
-      <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
-        <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-          <div>
-            <dt className="text-xs text-gray-500">Cliente</dt>
-            <dd className="text-white font-medium mt-0.5">{evento.cliente?.nombre}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-gray-500">Teléfono</dt>
-            <dd className="text-gray-300 mt-0.5">{evento.cliente?.telefono ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-gray-500">Paquete</dt>
-            <dd className="text-white font-medium mt-0.5">{evento.paquete?.nombre}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-gray-500">Duración</dt>
-            <dd className="text-gray-300 mt-0.5">{evento.duracion_horas}h</dd>
-          </div>
-          {evento.notas && (
-            <div className="col-span-2">
-              <dt className="text-xs text-gray-500">Notas</dt>
-              <dd className="text-gray-300 mt-0.5">{evento.notas}</dd>
-            </div>
-          )}
-        </dl>
+      {/* ── Tabs ── */}
+      <div className="flex gap-0 border-b border-gray-800">
+        {(["detalle", "pagos"] as Tab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-5 py-2.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+              activeTab === tab
+                ? "border-indigo-500 text-white"
+                : "border-transparent text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            {tab === "detalle" ? "Información" : "Pagos"}
+            {tab === "pagos" && (
+              <span
+                className={`ml-2 text-xs font-semibold rounded-full px-1.5 py-0.5 ${
+                  estadoPago === "pagado"
+                    ? "bg-green-900/50 text-green-400"
+                    : estadoPago === "con_sena"
+                    ? "bg-yellow-900/50 text-yellow-400"
+                    : "bg-red-900/50 text-red-400"
+                }`}
+              >
+                {pagos.length}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Pagos section */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-white">Historial de pagos</h2>
-          {saldo > 0 && !showPagoForm && (
-            <button
-              onClick={() => setShowPagoForm(true)}
-              className="rounded-lg bg-green-700 hover:bg-green-600 px-4 py-1.5 text-sm font-semibold text-white transition-colors"
-            >
-              + Registrar pago
-            </button>
-          )}
+      {/* ── Tab: Detalle ── */}
+      {activeTab === "detalle" && (
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <dt className="text-xs text-gray-500">Cliente</dt>
+              <dd className="text-white font-medium mt-0.5">{evento.cliente?.nombre}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">Teléfono</dt>
+              <dd className="text-gray-300 mt-0.5">{evento.cliente?.telefono ?? "—"}</dd>
+            </div>
+            {evento.edad_festejado && (
+              <div>
+                <dt className="text-xs text-gray-500">Edad festejado/a</dt>
+                <dd className="text-gray-300 mt-0.5">{evento.edad_festejado} años</dd>
+              </div>
+            )}
+            <div>
+              <dt className="text-xs text-gray-500">Paquete</dt>
+              <dd className="text-white font-medium mt-0.5">{evento.paquete?.nombre}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">Duración</dt>
+              <dd className="text-gray-300 mt-0.5">
+                {evento.duracion_horas}h
+                {evento.duracion_minutos > 0 ? ` ${evento.duracion_minutos}min` : ""}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">Invitados</dt>
+              <dd className="text-gray-300 mt-0.5">{evento.num_invitados ?? 0}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">Precio total</dt>
+              <dd className="text-white font-bold mt-0.5">
+                ${evento.precio_total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </dd>
+            </div>
+            {evento.notas && (
+              <div className="col-span-2">
+                <dt className="text-xs text-gray-500">Notas</dt>
+                <dd className="text-gray-300 mt-0.5">{evento.notas}</dd>
+              </div>
+            )}
+          </dl>
         </div>
+      )}
 
-        {showPagoForm && (
-          <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-5 mb-4">
-            <h3 className="text-sm font-semibold text-white mb-4">Nuevo pago</h3>
+      {/* ── Tab: Pagos ── */}
+      {activeTab === "pagos" && (
+        <div className="space-y-4">
+          {/* Action bar */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-400">
+              {saldo > 0
+                ? `Saldo pendiente: ${saldo.toLocaleString("es-MX", { style: "currency", currency: "MXN" })}`
+                : "Evento completamente pagado"}
+            </p>
+            {saldo > 0 && (
+              <button
+                onClick={() => setShowPagoModal(true)}
+                className="rounded-lg bg-green-700 hover:bg-green-600 px-4 py-1.5 text-sm font-semibold text-white transition-colors"
+              >
+                + Agregar pago
+              </button>
+            )}
+          </div>
+
+          <HistorialPagos
+            pagos={pagos}
+            precioTotal={evento.precio_total}
+            montoSena={montoSena}
+            onDelete={handleDeletePago}
+            onEdited={loadEvento}
+          />
+        </div>
+      )}
+
+      {/* ── Pago modal ── */}
+      {showPagoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-xl bg-gray-900 rounded-2xl p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-bold text-white">Registrar pago</h3>
+              <button
+                onClick={() => setShowPagoModal(false)}
+                className="text-gray-500 hover:text-gray-300 text-xl"
+              >
+                ✕
+              </button>
+            </div>
             <PagoForm
               eventoId={id}
               precioTotal={evento.precio_total}
               totalPagado={totalPagado}
-              onSuccess={() => { setShowPagoForm(false); loadEvento(); }}
+              onSuccess={() => {
+                setShowPagoModal(false);
+                loadEvento();
+              }}
+              onCancel={() => setShowPagoModal(false)}
             />
           </div>
-        )}
-
-        <HistorialPagos
-          pagos={pagos}
-          precioTotal={evento.precio_total}
-          onDelete={handleDeletePago}
-        />
-      </div>
+        </div>
+      )}
     </div>
   );
 }

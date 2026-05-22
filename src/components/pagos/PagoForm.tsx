@@ -10,6 +10,7 @@ interface PagoFormProps {
   precioTotal: number;
   totalPagado: number;
   onSuccess: () => void;
+  onCancel?: () => void;
 }
 
 export default function PagoForm({
@@ -17,6 +18,7 @@ export default function PagoForm({
   precioTotal,
   totalPagado,
   onSuccess,
+  onCancel,
 }: PagoFormProps) {
   const saldo = Math.max(0, precioTotal - totalPagado);
 
@@ -25,6 +27,10 @@ export default function PagoForm({
   const [tipoTarjeta, setTipoTarjeta] = useState<TarjetaNombre>("VISA");
   const [numCuotas, setNumCuotas] = useState<CuotasClave>("1");
   const [notas, setNotas] = useState("");
+  const [quienRecibio, setQuienRecibio] = useState("");
+  const [fechaPago, setFechaPago] = useState(
+    () => new Date().toISOString().slice(0, 16) // datetime-local format
+  );
   // discount state
   const [tieneDescuento, setTieneDescuento] = useState(false);
   const [tipoDescuento, setTipoDescuento] = useState<TipoDescuento>("porcentaje");
@@ -72,6 +78,8 @@ export default function PagoForm({
           ? { tipo_tarjeta: tipoTarjeta, num_cuotas: Number(numCuotas) }
           : {}),
         notas: notas || null,
+        quien_recibio: quienRecibio || null,
+        fecha_pago: new Date(fechaPago).toISOString(),
         tiene_descuento: tieneDescuento,
         ...(tieneDescuento
           ? { tipo_descuento: tipoDescuento, valor_descuento: valorDescuentoNum }
@@ -106,7 +114,6 @@ export default function PagoForm({
             className="input"
             min={0.01}
             step="0.01"
-            max={saldo}
             value={monto}
             onChange={(e) => setMonto(e.target.value)}
             required
@@ -125,6 +132,29 @@ export default function PagoForm({
             <option value="tarjeta">Tarjeta</option>
             <option value="transferencia">Transferencia</option>
           </select>
+        </div>
+
+        {/* Fecha del pago */}
+        <div>
+          <label className="label">Fecha y hora del pago</label>
+          <input
+            type="datetime-local"
+            className="input"
+            value={fechaPago}
+            onChange={(e) => setFechaPago(e.target.value)}
+          />
+        </div>
+
+        {/* Quién lo recibió */}
+        <div>
+          <label className="label">Recibido por</label>
+          <input
+            type="text"
+            className="input"
+            placeholder="Nombre del empleado/a"
+            value={quienRecibio}
+            onChange={(e) => setQuienRecibio(e.target.value)}
+          />
         </div>
       </div>
 
@@ -183,7 +213,6 @@ export default function PagoForm({
 
         {tieneDescuento && (
           <div className="rounded-xl border border-indigo-800 bg-indigo-900/20 p-4 space-y-3">
-            {/* Tipo radio */}
             <div className="flex gap-5">
               {(["porcentaje", "monto"] as TipoDescuento[]).map((tipo) => (
                 <label key={tipo} className="flex items-center gap-2 cursor-pointer text-sm text-gray-300">
@@ -200,7 +229,6 @@ export default function PagoForm({
               ))}
             </div>
 
-            {/* Valor */}
             <div>
               <label className="label">
                 {tipoDescuento === "porcentaje" ? "Porcentaje de descuento (%)" : "Monto a descontar ($)"}
@@ -218,7 +246,6 @@ export default function PagoForm({
               />
             </div>
 
-            {/* Live preview */}
             {valorDescuentoNum > 0 && (
               <div className={`rounded-lg px-4 py-2.5 text-sm border ${
                 montoFinal > 0
@@ -231,7 +258,7 @@ export default function PagoForm({
                     <span className="font-semibold">
                       −${descuentoAmount.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
-                    {" · "}Nuevo total acreditado:{" "}
+                    {" · "}Acreditado:{" "}
                     <span className="font-bold text-white">
                       ${montoFinal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
@@ -247,11 +274,11 @@ export default function PagoForm({
 
       {/* Notas */}
       <div>
-        <label className="label">Notas</label>
+        <label className="label">Notas / referencia</label>
         <input
           type="text"
           className="input"
-          placeholder="Referencia, número de operación…"
+          placeholder="Número de transferencia, comprobante…"
           value={notas}
           onChange={(e) => setNotas(e.target.value)}
         />
@@ -264,13 +291,24 @@ export default function PagoForm({
             ${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
           </span>
         </p>
-        <button
-          type="submit"
-          disabled={saving || !montoFinalValido}
-          className="rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-60 px-5 py-2 text-sm font-semibold text-white transition-colors"
-        >
-          {saving ? "Registrando…" : "Registrar pago"}
-        </button>
+        <div className="flex gap-3">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-lg px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Cancelar
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={saving || !montoFinalValido}
+            className="rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-60 px-5 py-2 text-sm font-semibold text-white transition-colors"
+          >
+            {saving ? "Registrando…" : "Registrar pago"}
+          </button>
+        </div>
       </div>
     </form>
   );

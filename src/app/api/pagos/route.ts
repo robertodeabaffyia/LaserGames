@@ -150,6 +150,7 @@ export async function POST(request: NextRequest) {
       num_cuotas: body.num_cuotas ?? null,
       recargo_pct,
       notas: body.notas ?? null,
+      quien_recibio: body.quien_recibio ?? null,
       fecha_pago: body.fecha_pago ?? new Date().toISOString(),
       tiene_descuento: tieneDescuento,
       tipo_descuento: tieneDescuento ? (body.tipo_descuento ?? null) : null,

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { TarjetaRecargos, TarjetaNombre, CuotasClave } from "@/types/configuracion";
 import { TARJETAS, CUOTAS } from "@/types/configuracion";
+import type { TipoDescuento } from "@/types/pagos";
 
 interface PagoFormProps {
   eventoId: string;
@@ -24,6 +25,11 @@ export default function PagoForm({
   const [tipoTarjeta, setTipoTarjeta] = useState<TarjetaNombre>("VISA");
   const [numCuotas, setNumCuotas] = useState<CuotasClave>("1");
   const [notas, setNotas] = useState("");
+  // discount state
+  const [tieneDescuento, setTieneDescuento] = useState(false);
+  const [tipoDescuento, setTipoDescuento] = useState<TipoDescuento>("porcentaje");
+  const [valorDescuento, setValorDescuento] = useState<string>("");
+  // misc
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recargos, setRecargos] = useState<TarjetaRecargos>({});
@@ -36,11 +42,19 @@ export default function PagoForm({
 
   // Live recargo preview
   const recargoPct =
-    metodo === "tarjeta"
-      ? (recargos[tipoTarjeta]?.[numCuotas] ?? 0)
-      : 0;
+    metodo === "tarjeta" ? (recargos[tipoTarjeta]?.[numCuotas] ?? 0) : 0;
   const montoNum = Number(monto) || 0;
   const totalConRecargo = montoNum * (1 + recargoPct / 100);
+
+  // Live discount preview
+  const valorDescuentoNum = Number(valorDescuento) || 0;
+  const descuentoAmount = tieneDescuento
+    ? tipoDescuento === "porcentaje"
+      ? montoNum * (valorDescuentoNum / 100)
+      : valorDescuentoNum
+    : 0;
+  const montoFinal = montoNum - descuentoAmount;
+  const montoFinalValido = !tieneDescuento || (valorDescuentoNum > 0 && montoFinal > 0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,6 +72,10 @@ export default function PagoForm({
           ? { tipo_tarjeta: tipoTarjeta, num_cuotas: Number(numCuotas) }
           : {}),
         notas: notas || null,
+        tiene_descuento: tieneDescuento,
+        ...(tieneDescuento
+          ? { tipo_descuento: tipoDescuento, valor_descuento: valorDescuentoNum }
+          : {}),
       }),
     });
 
@@ -101,9 +119,7 @@ export default function PagoForm({
           <select
             className="input"
             value={metodo}
-            onChange={(e) =>
-              setMetodo(e.target.value as typeof metodo)
-            }
+            onChange={(e) => setMetodo(e.target.value as typeof metodo)}
           >
             <option value="efectivo">Efectivo</option>
             <option value="tarjeta">Tarjeta</option>
@@ -123,9 +139,7 @@ export default function PagoForm({
               onChange={(e) => setTipoTarjeta(e.target.value as TarjetaNombre)}
             >
               {TARJETAS.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
@@ -137,13 +151,10 @@ export default function PagoForm({
               onChange={(e) => setNumCuotas(e.target.value as CuotasClave)}
             >
               {CUOTAS.map((c) => (
-                <option key={c} value={c}>
-                  {c === "1" ? "Contado" : `${c} cuotas`}
-                </option>
+                <option key={c} value={c}>{c === "1" ? "Contado" : `${c} cuotas`}</option>
               ))}
             </select>
           </div>
-
           {recargoPct > 0 && (
             <div className="col-span-2 rounded-lg bg-amber-900/30 border border-amber-700 px-4 py-2.5 text-sm text-amber-300">
               Recargo {recargoPct}%: el cliente paga{" "}
@@ -154,6 +165,85 @@ export default function PagoForm({
           )}
         </div>
       )}
+
+      {/* ── Descuento ──────────────────────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <label className="flex items-center gap-2.5 cursor-pointer w-fit">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-gray-600 bg-gray-800 accent-indigo-500"
+            checked={tieneDescuento}
+            onChange={(e) => {
+              setTieneDescuento(e.target.checked);
+              if (!e.target.checked) setValorDescuento("");
+            }}
+          />
+          <span className="text-sm text-gray-300">Aplicar descuento</span>
+        </label>
+
+        {tieneDescuento && (
+          <div className="rounded-xl border border-indigo-800 bg-indigo-900/20 p-4 space-y-3">
+            {/* Tipo radio */}
+            <div className="flex gap-5">
+              {(["porcentaje", "monto"] as TipoDescuento[]).map((tipo) => (
+                <label key={tipo} className="flex items-center gap-2 cursor-pointer text-sm text-gray-300">
+                  <input
+                    type="radio"
+                    name="tipo_descuento"
+                    value={tipo}
+                    checked={tipoDescuento === tipo}
+                    onChange={() => { setTipoDescuento(tipo); setValorDescuento(""); }}
+                    className="accent-indigo-500"
+                  />
+                  {tipo === "porcentaje" ? "Porcentaje (%)" : "Monto fijo ($)"}
+                </label>
+              ))}
+            </div>
+
+            {/* Valor */}
+            <div>
+              <label className="label">
+                {tipoDescuento === "porcentaje" ? "Porcentaje de descuento (%)" : "Monto a descontar ($)"}
+              </label>
+              <input
+                type="number"
+                className="input max-w-[160px]"
+                min={0.01}
+                step={tipoDescuento === "porcentaje" ? "0.1" : "0.01"}
+                max={tipoDescuento === "porcentaje" ? 100 : montoNum - 0.01}
+                value={valorDescuento}
+                onChange={(e) => setValorDescuento(e.target.value)}
+                placeholder={tipoDescuento === "porcentaje" ? "ej. 10" : "ej. 200"}
+                required={tieneDescuento}
+              />
+            </div>
+
+            {/* Live preview */}
+            {valorDescuentoNum > 0 && (
+              <div className={`rounded-lg px-4 py-2.5 text-sm border ${
+                montoFinal > 0
+                  ? "bg-green-900/20 border-green-800 text-green-300"
+                  : "bg-red-900/20 border-red-800 text-red-300"
+              }`}>
+                {montoFinal > 0 ? (
+                  <>
+                    Descuento:{" "}
+                    <span className="font-semibold">
+                      −${descuentoAmount.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    </span>
+                    {" · "}Nuevo total acreditado:{" "}
+                    <span className="font-bold text-white">
+                      ${montoFinal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    </span>
+                  </>
+                ) : (
+                  "El descuento no puede ser mayor o igual al monto base."
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Notas */}
       <div>
@@ -176,7 +266,7 @@ export default function PagoForm({
         </p>
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || !montoFinalValido}
           className="rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-60 px-5 py-2 text-sm font-semibold text-white transition-colors"
         >
           {saving ? "Registrando…" : "Registrar pago"}

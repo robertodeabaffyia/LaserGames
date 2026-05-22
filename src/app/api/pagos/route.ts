@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(data);
 }
 
-/** POST — record a payment, updating evento status based on seña / completion rules */
+/** POST — record a payment with optional discount, updating evento status */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
@@ -41,6 +41,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  // ── Basic field validation ─────────────────────────────────────────────────
+
   if (!body.evento_id)
     return NextResponse.json({ error: "evento_id is required" }, { status: 400 });
   if (!body.monto || body.monto <= 0)
@@ -48,7 +50,52 @@ export async function POST(request: NextRequest) {
   if (!body.metodo)
     return NextResponse.json({ error: "metodo is required" }, { status: 400 });
 
-  // Fetch evento
+  // ── Discount validation ────────────────────────────────────────────────────
+
+  const tieneDescuento = body.tiene_descuento === true;
+  let descuentoAmount = 0;
+
+  if (tieneDescuento) {
+    const { tipo_descuento, valor_descuento } = body;
+
+    if (!tipo_descuento || !["porcentaje", "monto"].includes(tipo_descuento)) {
+      return NextResponse.json(
+        { error: "tipo_descuento must be 'porcentaje' or 'monto' when tiene_descuento is true" },
+        { status: 400 }
+      );
+    }
+    if (!valor_descuento || valor_descuento <= 0) {
+      return NextResponse.json(
+        { error: "valor_descuento must be > 0 when tiene_descuento is true" },
+        { status: 400 }
+      );
+    }
+
+    if (tipo_descuento === "porcentaje") {
+      if (valor_descuento > 100) {
+        return NextResponse.json(
+          { error: "valor_descuento porcentaje cannot exceed 100" },
+          { status: 400 }
+        );
+      }
+      descuentoAmount = body.monto * (valor_descuento / 100);
+    } else {
+      descuentoAmount = valor_descuento;
+    }
+
+    const montoFinalPreview = body.monto - descuentoAmount;
+    if (montoFinalPreview <= 0) {
+      return NextResponse.json(
+        { error: "monto_final must be > 0 after applying the discount" },
+        { status: 400 }
+      );
+    }
+  }
+
+  const montoFinal = body.monto - descuentoAmount; // equals body.monto when no discount
+
+  // ── Fetch evento ───────────────────────────────────────────────────────────
+
   const { data: evento, error: eventoError } = await supabase
     .from("eventos")
     .select("id, precio_total, estado")
@@ -59,7 +106,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Evento not found" }, { status: 404 });
   }
 
-  // Fetch config for seña amount and tarjeta recargos
+  // ── Fetch config ───────────────────────────────────────────────────────────
+
   const { data: config } = await supabase
     .from("configuraciones")
     .select("monto_seña, tarjeta_recargos")
@@ -77,18 +125,20 @@ export async function POST(request: NextRequest) {
     recargo_pct = recargos[tarjetaKey]?.[cuotasKey] ?? 0;
   }
 
-  // Sum existing pagos for this evento
+  // ── Sum existing pagos using monto_final (backward-compat: fall back to monto) ──
+
   const { data: existingPagos } = await supabase
     .from("pagos")
-    .select("monto")
+    .select("monto, monto_final")
     .eq("evento_id", body.evento_id);
 
   const totalPagadoAntes = (existingPagos ?? []).reduce(
-    (sum, p) => sum + Number(p.monto),
+    (sum, p) => sum + Number((p as { monto_final?: number | null; monto: number }).monto_final ?? p.monto),
     0
   );
 
-  // Insert new pago
+  // ── Insert pago ────────────────────────────────────────────────────────────
+
   const { data: pago, error: pagoError } = await supabase
     .from("pagos")
     .insert({
@@ -100,6 +150,10 @@ export async function POST(request: NextRequest) {
       recargo_pct,
       notas: body.notas ?? null,
       fecha_pago: body.fecha_pago ?? new Date().toISOString(),
+      tiene_descuento: tieneDescuento,
+      tipo_descuento: tieneDescuento ? (body.tipo_descuento ?? null) : null,
+      valor_descuento: tieneDescuento ? (body.valor_descuento ?? null) : null,
+      monto_final: tieneDescuento ? montoFinal : null,
     })
     .select()
     .single();
@@ -108,15 +162,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: pagoError.message }, { status: 400 });
   }
 
-  // Determine new evento status
-  const totalPagadoAhora = totalPagadoAntes + body.monto;
+  // ── Determine new evento status (using montoFinal for balance) ─────────────
+
+  const totalPagadoAhora = totalPagadoAntes + montoFinal;
   let nuevoEstado: string | null = null;
 
   if (totalPagadoAhora >= evento.precio_total) {
-    // Fully paid
     nuevoEstado = "completado";
-  } else if (totalPagadoAntes === 0 && body.monto >= montoSeña && montoSeña > 0) {
-    // First payment covers seña → reserved
+  } else if (totalPagadoAntes === 0 && montoFinal >= montoSeña && montoSeña > 0) {
     nuevoEstado = "confirmado";
   }
 
@@ -127,14 +180,15 @@ export async function POST(request: NextRequest) {
       .eq("id", body.evento_id);
   }
 
-  // Auto-create ingreso movimiento_caja for this payment
+  // ── Auto-create ingreso movimiento_caja (using montoFinal) ─────────────────
+
   const fechaPago = (body.fecha_pago ?? new Date().toISOString()).slice(0, 10);
   await supabase.from("movimientos_caja").insert({
     usuario_id: user.id,
     tipo: "ingreso",
     categoria: "pago_evento",
     descripcion: `Pago evento (${body.metodo}) — evento ${body.evento_id}`,
-    monto: body.monto,
+    monto: montoFinal,
     fecha: fechaPago,
     es_repetible: false,
     frecuencia_repeticion: null,

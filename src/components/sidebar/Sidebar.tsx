@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -58,9 +59,16 @@ export default function Sidebar() {
 
   return (
     <aside className="w-56 shrink-0 border-r border-gray-800 flex flex-col">
-      <div className="px-5 py-5 border-b border-gray-800">
-        <p className="text-white font-bold text-lg leading-tight">EventOS</p>
-        <p className="text-gray-500 text-xs mt-0.5">Laser Tag Arena</p>
+      <div className="px-4 py-4 border-b border-gray-800">
+        <Image
+          src="/images/laser-games-logo.svg"
+          alt="Laser Games"
+          width={176}
+          height={64}
+          priority
+          className="w-full h-auto"
+        />
+        <p className="text-gray-500 text-xs mt-1.5 px-1">Laser Tag Arena</p>
       </div>
 
       <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto">

@@ -7,6 +7,7 @@ import HistorialPagos from "@/components/pagos/HistorialPagos";
 import type { EventoConRelaciones } from "@/types/eventos";
 import type { Pago } from "@/types/pagos";
 import { montoEfectivo, calcularEstadoPago } from "@/types/pagos";
+import { formatDuration } from "@/lib/duration";
 
 // ── Colour maps ────────────────────────────────────────────────────────────────
 
@@ -185,8 +186,7 @@ export default function EventoDetailPage() {
             <div>
               <dt className="text-xs text-gray-500">Duración</dt>
               <dd className="text-gray-300 mt-0.5">
-                {evento.duracion_horas}h
-                {evento.duracion_minutos > 0 ? ` ${evento.duracion_minutos}min` : ""}
+                {formatDuration(evento.duracion_horas, evento.duracion_minutos)}
               </dd>
             </div>
             <div>

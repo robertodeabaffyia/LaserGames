@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Item } from "@/types/items";
 import type { PaqueteWithItems, ItemInput } from "@/types/paquetes";
+import DurationInput from "@/components/ui/DurationInput";
 
 interface PackageFormProps {
   paquete?: PaqueteWithItems | null;
@@ -13,8 +14,6 @@ interface FormState {
   nombre: string;
   descripcion: string;
   precio: string;
-  duracion_horas: string;
-  duracion_minutos: string;
   cantidad_ninos_incluidos: string;
   cantidad_adultos_incluidos: string;
   es_activo: boolean;
@@ -32,12 +31,12 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
     nombre: paquete?.nombre ?? "",
     descripcion: paquete?.descripcion ?? "",
     precio: paquete?.precio?.toString() ?? "",
-    duracion_horas: paquete?.duracion_horas?.toString() ?? "2",
-    duracion_minutos: paquete?.duracion_minutos?.toString() ?? "0",
     cantidad_ninos_incluidos: paquete?.cantidad_ninos_incluidos?.toString() ?? "10",
     cantidad_adultos_incluidos: paquete?.cantidad_adultos_incluidos?.toString() ?? "2",
     es_activo: paquete?.es_activo ?? true,
   });
+  const [duracionHoras, setDuracionHoras] = useState(paquete?.duracion_horas ?? 2);
+  const [duracionMinutos, setDuracionMinutos] = useState(paquete?.duracion_minutos ?? 0);
 
   const [availableItems, setAvailableItems] = useState<Item[]>([]);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>(
@@ -81,8 +80,8 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
       nombre: form.nombre,
       descripcion: form.descripcion || null,
       precio: parseFloat(form.precio),
-      duracion_horas: parseInt(form.duracion_horas, 10),
-      duracion_minutos: Math.min(59, Math.max(0, parseInt(form.duracion_minutos, 10) || 0)),
+      duracion_horas: duracionHoras,
+      duracion_minutos: duracionMinutos,
       cantidad_ninos_incluidos: parseInt(form.cantidad_ninos_incluidos, 10),
       cantidad_adultos_incluidos: parseInt(form.cantidad_adultos_incluidos, 10),
       es_activo: form.es_activo,
@@ -170,28 +169,13 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
           />
         </div>
 
-        <div>
-          <label className="label">Duración — horas</label>
-          <input
+        <div className="col-span-2">
+          <label className="label">Duración</label>
+          <DurationInput
+            horas={duracionHoras}
+            minutos={duracionMinutos}
+            onChange={(h, m) => { setDuracionHoras(h); setDuracionMinutos(m); }}
             required
-            type="number"
-            min="1"
-            className="input"
-            value={form.duracion_horas}
-            onChange={(e) => setForm((f) => ({ ...f, duracion_horas: e.target.value }))}
-          />
-        </div>
-
-        <div>
-          <label className="label">Duración — minutos</label>
-          <input
-            required
-            type="number"
-            min="0"
-            max="59"
-            className="input"
-            value={form.duracion_minutos}
-            onChange={(e) => setForm((f) => ({ ...f, duracion_minutos: e.target.value }))}
           />
         </div>
 

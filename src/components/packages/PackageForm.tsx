@@ -14,8 +14,9 @@ interface FormState {
   descripcion: string;
   precio: string;
   duracion_horas: string;
-  cantidad_ninos_max: string;
-  cantidad_adultos_max: string;
+  duracion_minutos: string;
+  cantidad_ninos_incluidos: string;
+  cantidad_adultos_incluidos: string;
   es_activo: boolean;
 }
 
@@ -32,8 +33,9 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
     descripcion: paquete?.descripcion ?? "",
     precio: paquete?.precio?.toString() ?? "",
     duracion_horas: paquete?.duracion_horas?.toString() ?? "2",
-    cantidad_ninos_max: paquete?.cantidad_ninos_max?.toString() ?? "20",
-    cantidad_adultos_max: paquete?.cantidad_adultos_max?.toString() ?? "5",
+    duracion_minutos: paquete?.duracion_minutos?.toString() ?? "0",
+    cantidad_ninos_incluidos: paquete?.cantidad_ninos_incluidos?.toString() ?? "10",
+    cantidad_adultos_incluidos: paquete?.cantidad_adultos_incluidos?.toString() ?? "2",
     es_activo: paquete?.es_activo ?? true,
   });
 
@@ -80,8 +82,9 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
       descripcion: form.descripcion || null,
       precio: parseFloat(form.precio),
       duracion_horas: parseInt(form.duracion_horas, 10),
-      cantidad_ninos_max: parseInt(form.cantidad_ninos_max, 10),
-      cantidad_adultos_max: parseInt(form.cantidad_adultos_max, 10),
+      duracion_minutos: Math.min(59, Math.max(0, parseInt(form.duracion_minutos, 10) || 0)),
+      cantidad_ninos_incluidos: parseInt(form.cantidad_ninos_incluidos, 10),
+      cantidad_adultos_incluidos: parseInt(form.cantidad_adultos_incluidos, 10),
       es_activo: form.es_activo,
       items: selectedItems satisfies ItemInput[],
     };
@@ -168,7 +171,7 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
         </div>
 
         <div>
-          <label className="label">Duración (horas)</label>
+          <label className="label">Duración — horas</label>
           <input
             required
             type="number"
@@ -180,26 +183,39 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
         </div>
 
         <div>
-          <label className="label">Máx. niños</label>
+          <label className="label">Duración — minutos</label>
           <input
             required
             type="number"
             min="0"
+            max="59"
             className="input"
-            value={form.cantidad_ninos_max}
-            onChange={(e) => setForm((f) => ({ ...f, cantidad_ninos_max: e.target.value }))}
+            value={form.duracion_minutos}
+            onChange={(e) => setForm((f) => ({ ...f, duracion_minutos: e.target.value }))}
           />
         </div>
 
         <div>
-          <label className="label">Máx. adultos</label>
+          <label className="label">Niños incluidos</label>
           <input
             required
             type="number"
             min="0"
             className="input"
-            value={form.cantidad_adultos_max}
-            onChange={(e) => setForm((f) => ({ ...f, cantidad_adultos_max: e.target.value }))}
+            value={form.cantidad_ninos_incluidos}
+            onChange={(e) => setForm((f) => ({ ...f, cantidad_ninos_incluidos: e.target.value }))}
+          />
+        </div>
+
+        <div>
+          <label className="label">Adultos incluidos</label>
+          <input
+            required
+            type="number"
+            min="0"
+            className="input"
+            value={form.cantidad_adultos_incluidos}
+            onChange={(e) => setForm((f) => ({ ...f, cantidad_adultos_incluidos: e.target.value }))}
           />
         </div>
 

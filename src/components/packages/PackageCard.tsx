@@ -33,19 +33,16 @@ export default function PackageCard({ paquete, onEdit, onDelete }: PackageCardPr
         <span className="text-indigo-400 font-bold text-base">
           ${paquete.precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
         </span>
-        <span>{paquete.duracion_horas}h</span>
-        <span>Máx. {paquete.cantidad_ninos_max} niños / {paquete.cantidad_adultos_max} adultos</span>
+        <span>
+          {paquete.duracion_horas}h
+          {paquete.duracion_minutos > 0 && ` ${paquete.duracion_minutos}min`}
+        </span>
       </div>
 
-      {/* Included counts */}
-      <div className="flex flex-wrap gap-1.5">
-        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-xs font-medium text-indigo-300">
-          {paquete.cantidad_ninos_incluidos} niños incluidos
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 px-2.5 py-0.5 text-xs font-medium text-purple-300">
-          {paquete.cantidad_adultos_incluidos} adultos incluidos
-        </span>
-      </div>
+      {/* Included guests */}
+      <p className="text-sm text-gray-400">
+        {paquete.cantidad_ninos_incluidos} niños, {paquete.cantidad_adultos_incluidos} adultos incluidos
+      </p>
 
       {paquete.paquete_items.length > 0 && (
         <ul className="flex flex-wrap gap-1.5">

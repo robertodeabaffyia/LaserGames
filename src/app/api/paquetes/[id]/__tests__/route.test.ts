@@ -36,8 +36,9 @@ const mockPaquete = {
   nombre: "Paquete Básico",
   precio: 500,
   duracion_horas: 2,
-  cantidad_ninos_max: 20,
-  cantidad_adultos_max: 5,
+  duracion_minutos: 0,
+  cantidad_ninos_incluidos: 10,
+  cantidad_adultos_incluidos: 2,
   es_activo: true,
   paquete_items: [],
 };

@@ -100,6 +100,43 @@ describe("PUT /api/clientes/[id]", () => {
     const res = await PUT(badReq, params);
     expect(res.status).toBe(400);
   });
+
+  // ── email validation ──
+
+  it("returns 400 when email format is invalid", async () => {
+    const res = await PUT(req("PUT", { email: "bad-email" }), params);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/email/i);
+  });
+
+  it("accepts valid email on PUT", async () => {
+    mockFrom.mockReturnValue(chain({ data: mockPerfil, error: null }));
+
+    const res = await PUT(req("PUT", { email: "valid@example.com" }), params);
+    expect(res.status).toBe(200);
+  });
+
+  it("allows omitting email on PUT (partial update)", async () => {
+    mockFrom.mockReturnValue(chain({ data: mockPerfil, error: null }));
+
+    const res = await PUT(req("PUT", { nombre: "Nuevo nombre" }), params);
+    expect(res.status).toBe(200);
+  });
+
+  // ── phone validation ──
+
+  it("returns 400 when phone format is invalid on PUT", async () => {
+    const res = await PUT(req("PUT", { telefono: "abc" }), params);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/tel[eé]fono/i);
+  });
+
+  it("accepts valid phone on PUT", async () => {
+    mockFrom.mockReturnValue(chain({ data: mockPerfil, error: null }));
+
+    const res = await PUT(req("PUT", { telefono: "+525551234567" }), params);
+    expect(res.status).toBe(200);
+  });
 });
 
 // ── DELETE /api/clientes/[id] ─────────────────────────────────────────────────

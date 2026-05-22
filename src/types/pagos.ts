@@ -1,6 +1,7 @@
 import type { TarjetaNombre } from "./configuracion";
 
 export type TipoDescuento = "porcentaje" | "monto";
+export type AccionAuditoria = "crear" | "editar" | "eliminar";
 
 export interface Pago {
   id: string;
@@ -12,6 +13,7 @@ export interface Pago {
   recargo_pct: number;
   fecha_pago: string;       // ISO timestamptz
   notas: string | null;
+  quien_recibio: string | null;
   // discount fields (added in migration 009)
   tiene_descuento: boolean;
   tipo_descuento: TipoDescuento | null;
@@ -29,11 +31,20 @@ export type PagoInsert = {
   tipo_tarjeta?: TarjetaNombre | null;
   num_cuotas?: number | null;
   notas?: string | null;
+  quien_recibio?: string | null;
   fecha_pago?: string;
   // discount (optional)
   tiene_descuento?: boolean;
   tipo_descuento?: TipoDescuento | null;
   valor_descuento?: number | null;
+};
+
+export type PagoUpdate = {
+  notas?: string | null;
+  quien_recibio?: string | null;
+  fecha_pago?: string;
+  monto?: number;
+  metodo?: MetodoPago;
 };
 
 /** Effective amount credited toward the event balance. */
@@ -47,4 +58,26 @@ export interface ResumenPago {
   total_pagado: number;
   saldo_pendiente: number;
   credito: number;
+}
+
+export interface PagoAuditoria {
+  id: string;
+  pago_id: string;
+  accion: AccionAuditoria;
+  fecha: string; // ISO timestamptz
+  usuario_id: string | null;
+  cambios: Record<string, unknown>;
+}
+
+/** Payment colour status derived from amounts paid vs total / seña */
+export type EstadoPago = "sin_pago" | "con_sena" | "pagado";
+
+export function calcularEstadoPago(
+  totalPagado: number,
+  precioTotal: number,
+  montoSena: number
+): EstadoPago {
+  if (totalPagado >= precioTotal) return "pagado";
+  if (montoSena > 0 && totalPagado >= montoSena) return "con_sena";
+  return "sin_pago";
 }

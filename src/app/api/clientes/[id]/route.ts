@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { validarEmail, validarTelefono } from "@/lib/validaciones";
 import type { ClienteUpdate } from "@/types/clientes";
 
 type Params = { params: Promise<{ id: string }> };
@@ -39,6 +40,17 @@ export async function PUT(request: NextRequest, { params }: Params) {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (body.email && !validarEmail(body.email)) {
+    return NextResponse.json({ error: "El formato de email es inválido" }, { status: 400 });
+  }
+
+  if (body.telefono && !validarTelefono(body.telefono)) {
+    return NextResponse.json(
+      { error: "El teléfono debe tener entre 7 y 15 dígitos (formato internacional)" },
+      { status: 400 }
+    );
   }
 
   const { data, error } = await supabase

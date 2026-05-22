@@ -401,3 +401,44 @@ describe("POST /api/pagos — descuentos", () => {
     );
   });
 });
+
+// ── POST — quien_recibio ──────────────────────────────────────────────────────
+
+describe("POST /api/pagos — quien_recibio", () => {
+  const base = { evento_id: "ev-1", monto: 1000, metodo: "efectivo" };
+
+  it("stores quien_recibio when provided", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    const insertChain = chain({ data: { ...mockPago, quien_recibio: "Carlos" }, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(chain({ data: [], error: null }))
+      .mockReturnValueOnce(insertChain)
+      .mockReturnValueOnce(chain({ data: null, error: null })) // update evento
+      .mockReturnValueOnce(chain({ data: null, error: null })); // movimiento_caja
+
+    const res = await POST(postReq({ ...base, quien_recibio: "Carlos" }));
+    expect(res.status).toBe(201);
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ quien_recibio: "Carlos" })
+    );
+  });
+
+  it("stores quien_recibio as null when not provided", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    const insertChain = chain({ data: mockPago, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(chain({ data: [], error: null }))
+      .mockReturnValueOnce(insertChain)
+      .mockReturnValueOnce(chain({ data: null, error: null }))
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    await POST(postReq(base));
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ quien_recibio: null })
+    );
+  });
+});

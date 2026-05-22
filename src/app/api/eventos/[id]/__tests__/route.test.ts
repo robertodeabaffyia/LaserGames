@@ -45,14 +45,21 @@ const mockEvento = {
   fecha_evento: "2026-06-15T14:00:00Z",
   nombre_festejado: "Mateo",
   duracion_horas: 2,
-  num_ninos_extra: 0,
-  num_adultos: 0,
+  duracion_minutos: 0,
+  cantidad_ninos_totales: 0,
+  cantidad_adultos_totales: 0,
   precio_nino_extra: 0,
   precio_adulto: 0,
   descuento: 0,
   precio_total: 3000,
   estado: "pendiente",
-  paquete: { precio: 3000, duracion_horas: 2 },
+  paquete: {
+    precio: 3000,
+    duracion_horas: 2,
+    duracion_minutos: 0,
+    cantidad_ninos_incluidos: 5,
+    cantidad_adultos_incluidos: 2,
+  },
 };
 
 beforeEach(() => jest.clearAllMocks());
@@ -122,7 +129,7 @@ describe("PUT /api/eventos/[id]", () => {
 
   it("returns 409 when rescheduled event overlaps another", async () => {
     const conflicting = [
-      { id: "other-ev", fecha_evento: "2026-06-20T13:00:00Z", duracion_horas: 2 },
+      { id: "other-ev", fecha_evento: "2026-06-20T13:00:00Z", duracion_horas: 2, duracion_minutos: 0 },
     ];
     mockFrom
       .mockReturnValueOnce(chain({ data: mockEvento, error: null }))     // fetch current
@@ -134,7 +141,7 @@ describe("PUT /api/eventos/[id]", () => {
 
   it("allows reschedule when only overlap is self", async () => {
     // Self-overlap should be excluded
-    const selfSlot = [{ id: ID, fecha_evento: "2026-06-20T14:00:00Z", duracion_horas: 2 }];
+    const selfSlot = [{ id: ID, fecha_evento: "2026-06-20T14:00:00Z", duracion_horas: 2, duracion_minutos: 0 }];
     const updateChain = chain({ data: { ...mockEvento, fecha_evento: "2026-06-20T14:00:00Z" }, error: null });
     mockFrom
       .mockReturnValueOnce(chain({ data: mockEvento, error: null }))  // fetch current

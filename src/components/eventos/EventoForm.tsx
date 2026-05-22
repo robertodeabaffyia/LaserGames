@@ -8,6 +8,9 @@ interface Paquete {
   nombre: string;
   precio: number;
   duracion_horas: number;
+  duracion_minutos: number;
+  cantidad_ninos_incluidos: number;
+  cantidad_adultos_incluidos: number;
 }
 
 interface Cliente {
@@ -47,8 +50,8 @@ export default function EventoForm({
     nombre_festejado: evento?.nombre_festejado ?? "",
     edad_festejado: evento?.edad_festejado?.toString() ?? "",
     num_invitados: evento?.num_invitados?.toString() ?? "0",
-    num_ninos_extra: evento?.num_ninos_extra?.toString() ?? "0",
-    num_adultos: evento?.num_adultos?.toString() ?? "0",
+    cantidad_ninos_totales: evento?.cantidad_ninos_totales?.toString() ?? "0",
+    cantidad_adultos_totales: evento?.cantidad_adultos_totales?.toString() ?? "0",
     precio_nino_extra: evento?.precio_nino_extra?.toString() ?? "0",
     precio_adulto: evento?.precio_adulto?.toString() ?? "0",
     descuento: evento?.descuento?.toString() ?? "0",
@@ -59,10 +62,12 @@ export default function EventoForm({
   // Preview calculated price
   const selectedPaquete = paquetes.find((p) => p.id === form.paquete_id);
   const precioBase = selectedPaquete?.precio ?? 0;
+  const ninosExtra = Math.max(0, Number(form.cantidad_ninos_totales) - (selectedPaquete?.cantidad_ninos_incluidos ?? 0));
+  const adultosExtra = Math.max(0, Number(form.cantidad_adultos_totales) - (selectedPaquete?.cantidad_adultos_incluidos ?? 0));
   const precioPreview =
     precioBase +
-    Number(form.num_ninos_extra) * Number(form.precio_nino_extra) +
-    Number(form.num_adultos) * Number(form.precio_adulto) -
+    ninosExtra * Number(form.precio_nino_extra) +
+    adultosExtra * Number(form.precio_adulto) -
     Number(form.descuento);
 
   useEffect(() => {
@@ -94,8 +99,8 @@ export default function EventoForm({
       nombre_festejado: form.nombre_festejado,
       edad_festejado: form.edad_festejado ? Number(form.edad_festejado) : null,
       num_invitados: Number(form.num_invitados),
-      num_ninos_extra: Number(form.num_ninos_extra),
-      num_adultos: Number(form.num_adultos),
+      cantidad_ninos_totales: Number(form.cantidad_ninos_totales),
+      cantidad_adultos_totales: Number(form.cantidad_adultos_totales),
       precio_nino_extra: Number(form.precio_nino_extra),
       precio_adulto: Number(form.precio_adulto),
       descuento: Number(form.descuento),
@@ -245,17 +250,24 @@ export default function EventoForm({
         <h3 className="text-sm font-semibold text-gray-300 mb-3">Precios adicionales</h3>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
-            <label className="label">Niños extra</label>
+            <label className="label">
+              Niños totales
+              {selectedPaquete && (
+                <span className="ml-1 text-gray-500 font-normal">
+                  ({selectedPaquete.cantidad_ninos_incluidos} incl.)
+                </span>
+              )}
+            </label>
             <input
               type="number"
               className="input"
               min={0}
-              value={form.num_ninos_extra}
-              onChange={(e) => set("num_ninos_extra", e.target.value)}
+              value={form.cantidad_ninos_totales}
+              onChange={(e) => set("cantidad_ninos_totales", e.target.value)}
             />
           </div>
           <div>
-            <label className="label">Precio / niño</label>
+            <label className="label">Precio / niño extra</label>
             <input
               type="number"
               className="input"
@@ -266,13 +278,20 @@ export default function EventoForm({
             />
           </div>
           <div>
-            <label className="label">Adultos</label>
+            <label className="label">
+              Adultos totales
+              {selectedPaquete && (
+                <span className="ml-1 text-gray-500 font-normal">
+                  ({selectedPaquete.cantidad_adultos_incluidos} incl.)
+                </span>
+              )}
+            </label>
             <input
               type="number"
               className="input"
               min={0}
-              value={form.num_adultos}
-              onChange={(e) => set("num_adultos", e.target.value)}
+              value={form.cantidad_adultos_totales}
+              onChange={(e) => set("cantidad_adultos_totales", e.target.value)}
             />
           </div>
           <div>

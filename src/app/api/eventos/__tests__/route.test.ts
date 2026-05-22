@@ -20,7 +20,13 @@ function chain(result: unknown) {
   return c;
 }
 
-const mockPaquete = { precio: 3000, duracion_horas: 2 };
+const mockPaquete = {
+  precio: 3000,
+  duracion_horas: 2,
+  duracion_minutos: 0,
+  cantidad_ninos_incluidos: 5,
+  cantidad_adultos_incluidos: 2,
+};
 const mockEvento = {
   id: "ev-1",
   cliente_id: "cli-1",
@@ -28,8 +34,9 @@ const mockEvento = {
   fecha_evento: "2026-06-15T14:00:00Z",
   nombre_festejado: "Mateo",
   duracion_horas: 2,
-  num_ninos_extra: 0,
-  num_adultos: 0,
+  duracion_minutos: 0,
+  cantidad_ninos_totales: 0,
+  cantidad_adultos_totales: 0,
   precio_nino_extra: 0,
   precio_adulto: 0,
   descuento: 0,
@@ -133,9 +140,9 @@ describe("POST /api/eventos", () => {
   it("calculates precio_total with extras and discount", async () => {
     const bodyWithExtras = {
       ...validBody,
-      num_ninos_extra: 3,
+      cantidad_ninos_totales: 8,  // 8 - 5 included = 3 extra x 100 = 300
       precio_nino_extra: 100,
-      num_adultos: 2,
+      cantidad_adultos_totales: 4, // 4 - 2 included = 2 extra x 150 = 300
       precio_adulto: 150,
       descuento: 200,
     };
@@ -210,7 +217,7 @@ describe("POST /api/eventos", () => {
 
   it("returns 409 when schedule overlaps an existing event", async () => {
     const conflicting = [
-      { id: "ev-x", fecha_evento: "2026-06-15T13:00:00Z", duracion_horas: 2 },
+      { id: "ev-x", fecha_evento: "2026-06-15T13:00:00Z", duracion_horas: 2, duracion_minutos: 0 },
     ];
     mockFrom
       .mockReturnValueOnce(chain({ data: mockPaquete, error: null }))

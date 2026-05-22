@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { EVENTO_ESTADOS, type EventoEstado, type Evento } from "@/types/eventos";
 import { calcularEdad, MIN_EDAD_FESTEJADO } from "@/lib/validaciones";
+import { formatDuration } from "@/lib/duration";
 import ClienteAutocomplete, {
   type ClienteResumen,
 } from "@/components/clientes/ClienteAutocomplete";
@@ -256,7 +257,7 @@ export default function EventoForm({
             <option value="">Selecciona un paquete</option>
             {paquetes.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.nombre} — ${p.precio.toLocaleString()} ({p.duracion_horas}h)
+                {p.nombre} — ${p.precio.toLocaleString("es-MX")} ({formatDuration(p.duracion_horas, p.duracion_minutos)})
               </option>
             ))}
           </select>

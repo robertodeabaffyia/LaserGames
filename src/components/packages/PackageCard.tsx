@@ -1,6 +1,7 @@
 "use client";
 
 import type { PaqueteWithItems } from "@/types/paquetes";
+import { formatDuration } from "@/lib/duration";
 
 interface PackageCardProps {
   paquete: PaqueteWithItems;
@@ -33,10 +34,7 @@ export default function PackageCard({ paquete, onEdit, onDelete }: PackageCardPr
         <span className="text-indigo-400 font-bold text-base">
           ${paquete.precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
         </span>
-        <span>
-          {paquete.duracion_horas}h
-          {paquete.duracion_minutos > 0 && ` ${paquete.duracion_minutos}min`}
-        </span>
+        <span>{formatDuration(paquete.duracion_horas, paquete.duracion_minutos)}</span>
       </div>
 
       {/* Included guests */}

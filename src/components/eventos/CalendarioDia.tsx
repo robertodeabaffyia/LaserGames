@@ -103,7 +103,9 @@ export default function CalendarioDia({
                         })}
                         {" – "}
                         {new Date(
-                          new Date(ev.fecha_evento).getTime() + ev.duracion_horas * 3_600_000
+                          new Date(ev.fecha_evento).getTime() +
+                            ev.duracion_horas * 3_600_000 +
+                            (ev.duracion_minutos ?? 0) * 60_000
                         ).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>

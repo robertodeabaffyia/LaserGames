@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { EVENTO_ESTADOS, type EventoEstado, type Evento } from "@/types/eventos";
 import { calcularEdad, MIN_EDAD_FESTEJADO } from "@/lib/validaciones";
 import { formatDuration } from "@/lib/duration";
+import { calcularPrecioTotal, fechaEventoToISO } from "@/lib/eventos";
 import ClienteAutocomplete, {
   type ClienteResumen,
 } from "@/components/clientes/ClienteAutocomplete";
@@ -58,18 +59,23 @@ export default function EventoForm({
     notas: evento?.notas ?? "",
   });
 
-  // Price preview
+  // Price preview — uses the same calcularPrecioTotal as the API so the
+  // displayed estimate always matches what the server will persist.
   const selectedPaquete = paquetes.find((p) => p.id === form.paquete_id);
-  const precioBase = selectedPaquete?.precio ?? 0;
   const ninosIncluidos = selectedPaquete?.cantidad_ninos_incluidos ?? 0;
   const adultosIncluidos = selectedPaquete?.cantidad_adultos_incluidos ?? 0;
   const ninosAdicionales = Math.max(0, Number(form.cantidad_ninos_totales) - ninosIncluidos);
   const adultosAdicionales = Math.max(0, Number(form.cantidad_adultos_totales) - adultosIncluidos);
-  const precioPreview =
-    precioBase +
-    ninosAdicionales * precioNinoAdicional +
-    adultosAdicionales * precioAdultoAdicional -
-    Number(form.descuento);
+  const precioPreview = calcularPrecioTotal({
+    precioPaquete: selectedPaquete?.precio ?? 0,
+    cantidadNinosTotales: Number(form.cantidad_ninos_totales),
+    ninosIncluidos,
+    precioNinoExtra: precioNinoAdicional,
+    cantidadAdultosTotales: Number(form.cantidad_adultos_totales),
+    adultosIncluidos,
+    precioAdulto: precioAdultoAdicional,
+    descuento: Number(form.descuento),
+  });
 
   // Initial data fetch
   useEffect(() => {
@@ -168,7 +174,7 @@ export default function EventoForm({
     const payload = {
       cliente_id: selectedCliente.id,
       paquete_id: form.paquete_id,
-      fecha_evento: new Date(form.fecha_evento).toISOString(),
+      fecha_evento: fechaEventoToISO(form.fecha_evento),
       nombre_festejado: form.nombre_festejado,
       edad_festejado: edadNum,
       num_invitados: ninosTotales + adultosTotales,
@@ -272,6 +278,7 @@ export default function EventoForm({
             value={form.fecha_evento}
             onChange={(e) => set("fecha_evento", e.target.value)}
             required
+            data-testid="fecha-evento-input"
           />
         </div>
 

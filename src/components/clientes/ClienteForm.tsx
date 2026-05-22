@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import type { Cliente, ClienteInsert } from "@/types/clientes";
+import { validarEmail, validarTelefono } from "@/lib/validaciones";
 
 interface ClienteFormProps {
   cliente?: Cliente | null;
-  onClose: (saved: boolean) => void;
+  /** Called with (true, savedCliente) on success, (false) on cancel. */
+  onClose: (saved: boolean, cliente?: Cliente) => void;
 }
 
 export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
@@ -20,9 +22,26 @@ export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
   const [notas, setNotas] = useState(cliente?.notas ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; telefono?: string }>({});
+
+  function validate(): boolean {
+    const errors: { email?: string; telefono?: string } = {};
+
+    if (email && !validarEmail(email)) {
+      errors.email = "Formato de email inválido";
+    }
+    if (telefono && !validarTelefono(telefono)) {
+      errors.telefono = "Debe tener 7–15 dígitos (ej. +52 55 1234 5678)";
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!validate()) return;
+
     setSubmitting(true);
     setError(null);
 
@@ -49,7 +68,8 @@ export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
         throw new Error(body.error ?? "Error al guardar");
       }
 
-      onClose(true);
+      const saved: Cliente = await res.json();
+      onClose(true, saved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error desconocido");
     } finally {
@@ -95,21 +115,33 @@ export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
         <div>
           <label className="label">Teléfono</label>
           <input
-            className="input"
+            className={`input ${fieldErrors.telefono ? "border-red-500" : ""}`}
             type="tel"
             value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
+            onChange={(e) => {
+              setTelefono(e.target.value);
+              if (fieldErrors.telefono) setFieldErrors((p) => ({ ...p, telefono: undefined }));
+            }}
             placeholder="+52 55 0000 0000"
           />
+          {fieldErrors.telefono && (
+            <p className="mt-1 text-xs text-red-400">{fieldErrors.telefono}</p>
+          )}
         </div>
         <div>
           <label className="label">Email</label>
           <input
-            className="input"
+            className={`input ${fieldErrors.email ? "border-red-500" : ""}`}
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (fieldErrors.email) setFieldErrors((p) => ({ ...p, email: undefined }));
+            }}
           />
+          {fieldErrors.email && (
+            <p className="mt-1 text-xs text-red-400">{fieldErrors.email}</p>
+          )}
         </div>
       </div>
 

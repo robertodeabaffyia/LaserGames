@@ -67,6 +67,26 @@ describe("GET /api/clientes", () => {
     expect(c.filter).toHaveBeenCalledWith("hijos.colegio", "ilike", "%San José%");
   });
 
+  it("applies .limit() when limit param is present", async () => {
+    const c = chain({ data: [], error: null });
+    mockFrom.mockReturnValue(c);
+
+    const req = new NextRequest("http://localhost/api/clientes?q=ana&limit=8");
+    await GET(req);
+
+    expect(c.limit).toHaveBeenCalledWith(8);
+  });
+
+  it("does not apply .limit() when limit param is absent", async () => {
+    const c = chain({ data: [], error: null });
+    mockFrom.mockReturnValue(c);
+
+    const req = new NextRequest("http://localhost/api/clientes");
+    await GET(req);
+
+    expect(c.limit).not.toHaveBeenCalled();
+  });
+
   it("returns 500 on database error", async () => {
     mockFrom.mockReturnValue(chain({ data: null, error: { message: "DB error" } }));
 
@@ -117,5 +137,49 @@ describe("POST /api/clientes", () => {
     });
     const res = await POST(badReq);
     expect(res.status).toBe(400);
+  });
+
+  // ── email validation ──
+
+  it("returns 400 when email format is invalid", async () => {
+    const res = await POST(req({ nombre: "Test", email: "no-arroba" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/email/i);
+  });
+
+  it("accepts valid email format", async () => {
+    mockFrom.mockReturnValue(chain({ data: { ...mockCliente, email: "test@example.com" }, error: null }));
+
+    const res = await POST(req({ nombre: "Test", email: "test@example.com" }));
+    expect(res.status).toBe(201);
+  });
+
+  it("allows missing email (optional field)", async () => {
+    mockFrom.mockReturnValue(chain({ data: mockCliente, error: null }));
+
+    const res = await POST(req({ nombre: "Test" }));
+    expect(res.status).toBe(201);
+  });
+
+  // ── phone validation ──
+
+  it("returns 400 when phone format is invalid (too short)", async () => {
+    const res = await POST(req({ nombre: "Test", telefono: "123" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/tel[eé]fono/i);
+  });
+
+  it("accepts valid international phone", async () => {
+    mockFrom.mockReturnValue(chain({ data: mockCliente, error: null }));
+
+    const res = await POST(req({ nombre: "Test", telefono: "+525551234567" }));
+    expect(res.status).toBe(201);
+  });
+
+  it("allows missing phone (optional field)", async () => {
+    mockFrom.mockReturnValue(chain({ data: mockCliente, error: null }));
+
+    const res = await POST(req({ nombre: "Test" }));
+    expect(res.status).toBe(201);
   });
 });

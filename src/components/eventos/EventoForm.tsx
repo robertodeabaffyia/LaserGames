@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { EVENTO_ESTADOS, type EventoEstado, type Evento } from "@/types/eventos";
+import { calcularEdad, MIN_EDAD_FESTEJADO } from "@/lib/validaciones";
+import ClienteAutocomplete, {
+  type ClienteResumen,
+} from "@/components/clientes/ClienteAutocomplete";
 
 interface Paquete {
   id: string;
@@ -11,11 +15,6 @@ interface Paquete {
   duracion_minutos: number;
   cantidad_ninos_incluidos: number;
   cantidad_adultos_incluidos: number;
-}
-
-interface Cliente {
-  id: string;
-  nombre: string;
 }
 
 interface EventoFormProps {
@@ -36,13 +35,13 @@ export default function EventoForm({
 }: EventoFormProps) {
   const isEditing = !!evento;
 
-  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [paquetes, setPaquetes] = useState<Paquete[]>([]);
+  const [selectedCliente, setSelectedCliente] = useState<ClienteResumen | null>(null);
+  const [selectedHijoId, setSelectedHijoId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
-    cliente_id: evento?.cliente_id ?? "",
     paquete_id: evento?.paquete_id ?? "",
     fecha_evento: evento?.fecha_evento
       ? new Date(evento.fecha_evento).toISOString().slice(0, 16)
@@ -59,7 +58,7 @@ export default function EventoForm({
     notas: evento?.notas ?? "",
   });
 
-  // Preview calculated price
+  // Price preview
   const selectedPaquete = paquetes.find((p) => p.id === form.paquete_id);
   const precioBase = selectedPaquete?.precio ?? 0;
   const ninosExtra = Math.max(0, Number(form.cantidad_ninos_totales) - (selectedPaquete?.cantidad_ninos_incluidos ?? 0));
@@ -70,34 +69,87 @@ export default function EventoForm({
     adultosExtra * Number(form.precio_adulto) -
     Number(form.descuento);
 
+  // Initial data fetch
   useEffect(() => {
-    Promise.all([
-      fetch("/api/clientes").then((r) => r.json()),
-      fetch("/api/paquetes").then((r) => r.json()),
-    ]).then(([c, p]) => {
-      setClientes(c ?? []);
-      setPaquetes(p ?? []);
-    });
+    async function init() {
+      const paquetesRes = await fetch("/api/paquetes");
+      const paquetesData = paquetesRes.ok ? await paquetesRes.json() : [];
+      setPaquetes(paquetesData ?? []);
+
+      // Edit mode: load current client for display (no auto-fill — values come from the evento)
+      if (evento?.cliente_id) {
+        const cliRes = await fetch(`/api/clientes/${evento.cliente_id}`);
+        if (cliRes.ok) {
+          const c = await cliRes.json();
+          setSelectedCliente(c);
+        }
+      }
+    }
+    init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const set = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const availableEstados = isAdmin
-    ? EVENTO_ESTADOS
-    : EDITABLE_ESTADOS;
+  // Called only when user actively selects a client via autocomplete
+  function handleClienteChange(cliente: ClienteResumen | null) {
+    setSelectedCliente(cliente);
+    setSelectedHijoId("");
+
+    if (!cliente) return;
+
+    const hijos = cliente.hijos ?? [];
+    if (hijos.length === 1) {
+      // Single child: auto-fill immediately
+      const hijo = hijos[0];
+      set("nombre_festejado", hijo.nombre);
+      const edad = calcularEdad(hijo.fecha_nacimiento);
+      if (edad >= 0) set("edad_festejado", String(edad));
+      setSelectedHijoId(hijo.id);
+    }
+    // Multiple children: dropdown will appear, no auto-fill yet
+  }
+
+  // Called when user picks a specific hijo from the dropdown
+  function handleHijoSelect(hijoId: string) {
+    setSelectedHijoId(hijoId);
+    if (!hijoId) return; // "Otro" selected — leave fields editable
+
+    const hijo = selectedCliente?.hijos.find((h) => h.id === hijoId);
+    if (!hijo) return;
+
+    set("nombre_festejado", hijo.nombre);
+    const edad = calcularEdad(hijo.fecha_nacimiento);
+    if (edad >= 0) set("edad_festejado", String(edad));
+  }
+
+  const availableEstados = isAdmin ? EVENTO_ESTADOS : EDITABLE_ESTADOS;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
+    // Validate edad mínima
+    const edadNum = form.edad_festejado ? Number(form.edad_festejado) : null;
+    if (edadNum !== null && edadNum < MIN_EDAD_FESTEJADO) {
+      setError(`La edad mínima del festejado es ${MIN_EDAD_FESTEJADO} años`);
+      return;
+    }
+
+    if (!selectedCliente) {
+      setError("Selecciona un cliente");
+      return;
+    }
+
+    setLoading(true);
+
     const payload = {
-      cliente_id: form.cliente_id,
+      cliente_id: selectedCliente.id,
       paquete_id: form.paquete_id,
       fecha_evento: new Date(form.fecha_evento).toISOString(),
       nombre_festejado: form.nombre_festejado,
-      edad_festejado: form.edad_festejado ? Number(form.edad_festejado) : null,
+      edad_festejado: edadNum,
       num_invitados: Number(form.num_invitados),
       cantidad_ninos_totales: Number(form.cantidad_ninos_totales),
       cantidad_adultos_totales: Number(form.cantidad_adultos_totales),
@@ -127,6 +179,9 @@ export default function EventoForm({
     onSuccess();
   }
 
+  const hijos = selectedCliente?.hijos ?? [];
+  const showHijoSelector = hijos.length > 1;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
@@ -136,23 +191,38 @@ export default function EventoForm({
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {/* Cliente */}
-        <div>
+        {/* Cliente autocomplete */}
+        <div className="sm:col-span-2">
           <label className="label">Cliente *</label>
-          <select
-            className="input"
-            value={form.cliente_id}
-            onChange={(e) => set("cliente_id", e.target.value)}
+          <ClienteAutocomplete
+            value={selectedCliente}
+            onChange={handleClienteChange}
             required
-          >
-            <option value="">Selecciona un cliente</option>
-            {clientes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
-          </select>
+          />
         </div>
+
+        {/* Hijo selector (only when client has multiple children) */}
+        {showHijoSelector && (
+          <div className="sm:col-span-2">
+            <label className="label">¿Quién es el/la festejado/a?</label>
+            <select
+              className="input"
+              value={selectedHijoId}
+              onChange={(e) => handleHijoSelect(e.target.value)}
+            >
+              <option value="">— Selecciona o escribe el nombre abajo —</option>
+              {hijos.map((h) => {
+                const edad = calcularEdad(h.fecha_nacimiento);
+                return (
+                  <option key={h.id} value={h.id}>
+                    {h.nombre} {edad >= 0 ? `(${edad} años)` : ""}
+                  </option>
+                );
+              })}
+              <option value="">Otro / ninguno</option>
+            </select>
+          </div>
+        )}
 
         {/* Paquete */}
         <div>
@@ -197,7 +267,6 @@ export default function EventoForm({
                 {s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}
               </option>
             ))}
-            {/* Admin-only options appended for admins */}
             {!isAdmin &&
               ADMIN_ESTADOS.map((s) => (
                 <option key={s} value={s} disabled>
@@ -207,9 +276,14 @@ export default function EventoForm({
           </select>
         </div>
 
-        {/* Festejado */}
+        {/* Nombre festejado */}
         <div>
-          <label className="label">Nombre del festejado *</label>
+          <label className="label">
+            Nombre del festejado *
+            {hijos.length === 1 && (
+              <span className="ml-1 text-xs text-gray-500 font-normal">(auto-completado)</span>
+            )}
+          </label>
           <input
             type="text"
             className="input"
@@ -220,12 +294,16 @@ export default function EventoForm({
           />
         </div>
 
+        {/* Edad festejado */}
         <div>
-          <label className="label">Edad del festejado</label>
+          <label className="label">
+            Edad del festejado
+            <span className="ml-1 text-xs text-gray-500 font-normal">(mín. {MIN_EDAD_FESTEJADO} años)</span>
+          </label>
           <input
             type="number"
             className="input"
-            min={1}
+            min={MIN_EDAD_FESTEJADO}
             max={99}
             placeholder="Edad"
             value={form.edad_festejado}

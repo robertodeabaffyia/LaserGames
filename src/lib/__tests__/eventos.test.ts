@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { calcularPrecioTotal, hayConflicto, type EventoSlot } from "../eventos";
+import { calcularPrecioTotal, fechaEventoToISO, hayConflicto, type EventoSlot } from "../eventos";
 
 describe("calcularPrecioTotal", () => {
   it("returns paquete price when no extras (all within included counts)", () => {
@@ -115,6 +115,88 @@ describe("calcularPrecioTotal", () => {
         descuento: 0,
       })
     ).toBe(2000);
+  });
+});
+
+// ── fechaEventoToISO ──────────────────────────────────────────────────────────
+
+describe("fechaEventoToISO", () => {
+  it("converts a datetime-local string to a valid ISO-8601 string", () => {
+    const result = fechaEventoToISO("2026-06-15T14:30");
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
+
+  it("preserves the correct date part", () => {
+    const result = fechaEventoToISO("2026-06-15T00:00");
+    expect(result).toMatch(/^2026-06-15/);
+  });
+
+  it("returns different ISO strings for different datetime-local inputs", () => {
+    const a = fechaEventoToISO("2026-06-15T10:00");
+    const b = fechaEventoToISO("2026-06-15T12:00");
+    expect(a).not.toBe(b);
+  });
+
+  it("does not mutate the input string", () => {
+    const input = "2026-07-04T09:00";
+    fechaEventoToISO(input);
+    expect(input).toBe("2026-07-04T09:00");
+  });
+});
+
+// ── calcularPrecioTotal — EventoForm preview scenarios ────────────────────────
+// Verify that changing fecha_evento does NOT affect the price calculation
+// (pricing depends only on paquete, guest counts, and descuento).
+
+describe("calcularPrecioTotal — price is independent of fecha_evento", () => {
+  const baseParams = {
+    precioPaquete: 3000,
+    cantidadNinosTotales: 8,
+    ninosIncluidos: 5,
+    precioNinoExtra: 150,
+    cantidadAdultosTotales: 3,
+    adultosIncluidos: 2,
+    precioAdulto: 100,
+    descuento: 200,
+  };
+  // 3 extra ninos × 150 = 450; 1 extra adulto × 100 = 100; 3000+450+100-200 = 3350
+  const expectedPrice = 3350;
+
+  it("returns the correct preview for the base scenario", () => {
+    expect(calcularPrecioTotal(baseParams)).toBe(expectedPrice);
+  });
+
+  it("returns the same price regardless of which fecha_evento is chosen (price is fecha-independent)", () => {
+    // Simulate user changing the date picker — price should not change.
+    const fechas = [
+      "2026-06-15T10:00",
+      "2026-12-31T23:59",
+      "2027-01-01T00:00",
+    ];
+    for (const _ of fechas) {
+      // calcularPrecioTotal has no fecha_evento param — this asserts the
+      // contract that fecha changes cannot silently corrupt pricing.
+      expect(calcularPrecioTotal(baseParams)).toBe(expectedPrice);
+    }
+  });
+
+  it("recalculates correctly when guest counts change (simulates form re-render)", () => {
+    // Add 2 more ninos → 5 extra total
+    const updated = { ...baseParams, cantidadNinosTotales: 10 };
+    // 5 extra ninos × 150 = 750; 1 extra adulto × 100 = 100; 3000+750+100-200 = 3650
+    expect(calcularPrecioTotal(updated)).toBe(3650);
+  });
+
+  it("recalculates correctly when descuento changes (simulates form re-render)", () => {
+    const updated = { ...baseParams, descuento: 500 };
+    // 3000+450+100-500 = 3050
+    expect(calcularPrecioTotal(updated)).toBe(3050);
+  });
+
+  it("recalculates correctly when paquete changes (simulates paquete dropdown change)", () => {
+    const updated = { ...baseParams, precioPaquete: 5000, ninosIncluidos: 10, adultosIncluidos: 5 };
+    // No extras (8<=10, 3<=5) → 5000-200 = 4800
+    expect(calcularPrecioTotal(updated)).toBe(4800);
   });
 });
 

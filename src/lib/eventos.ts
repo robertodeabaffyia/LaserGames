@@ -29,6 +29,22 @@ export function calcularPrecioTotal(params: PrecioParams): number {
   return Math.max(0, subtotal - params.descuento);
 }
 
+/**
+ * Convert a datetime-local string ("YYYY-MM-DDTHH:MM") to a UTC ISO-8601
+ * timestamp suitable for the API.
+ *
+ * Using `new Date(string).toISOString()` is intentional: datetime-local
+ * values are treated as *local* time by the Date constructor, so the
+ * resulting ISO string correctly reflects the user's intended wall-clock
+ * time converted to UTC.
+ *
+ * Exported so the EventoForm payload-building logic can be unit-tested
+ * without mounting the component.
+ */
+export function fechaEventoToISO(datetimeLocal: string): string {
+  return new Date(datetimeLocal).toISOString();
+}
+
 export interface EventoSlot {
   id: string;
   fecha_evento: string; // ISO timestamptz

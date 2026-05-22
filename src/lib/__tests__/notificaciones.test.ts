@@ -12,12 +12,15 @@ jest.mock("resend", () => ({
   })),
 }));
 
-const mockMessageCreate = jest.fn();
-jest.mock("twilio", () =>
-  jest.fn().mockImplementation(() => ({
-    messages: { create: mockMessageCreate },
-  }))
-);
+const mockMessagesSend = jest.fn();
+jest.mock("@vonage/server-sdk", () => ({
+  Vonage: jest.fn().mockImplementation(() => ({
+    messages: { send: mockMessagesSend },
+  })),
+}));
+jest.mock("@vonage/messages", () => ({
+  WhatsAppText: jest.fn().mockImplementation((opts: unknown) => opts),
+}));
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -90,17 +93,17 @@ describe("enviarEmail", () => {
 
 describe("enviarWhatsApp", () => {
   it("returns ok:true on success", async () => {
-    mockMessageCreate.mockResolvedValue({ sid: "SM123" });
+    mockMessagesSend.mockResolvedValue({ messageUUID: "uuid-1" });
 
     const result = await enviarWhatsApp("+5491112345678", "Hola desde WA");
     expect(result.ok).toBe(true);
-    expect(mockMessageCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "whatsapp:+5491112345678", body: "Hola desde WA" })
+    expect(mockMessagesSend).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "+5491112345678", text: "Hola desde WA" })
     );
   });
 
-  it("returns ok:false when Twilio throws", async () => {
-    mockMessageCreate.mockRejectedValue(new Error("Invalid number"));
+  it("returns ok:false when Vonage throws", async () => {
+    mockMessagesSend.mockRejectedValue(new Error("Invalid number"));
 
     const result = await enviarWhatsApp("+invalid", "msg");
     expect(result.ok).toBe(false);

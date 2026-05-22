@@ -15,6 +15,7 @@
     "@sendgrid/mail": "^8.1.6",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.0",
+    "@vonage/server-sdk": "^3.27.0",
     "jspdf": "^4.2.1",
     "next": "16.2.6",
     "react": "19.2.4",

@@ -1,5 +1,6 @@
 import { Resend } from "resend";
-import twilio from "twilio";
+import { Vonage } from "@vonage/server-sdk";
+import { WhatsAppText } from "@vonage/messages";
 import type { EnvioResult } from "@/types/notificaciones";
 
 /**
@@ -39,7 +40,7 @@ export async function enviarEmail(
 }
 
 /**
- * Send a WhatsApp message via Twilio.
+ * Send a WhatsApp message via Vonage Messages API.
  * `to` should be an E.164 phone number, e.g. "+5491112345678".
  */
 export async function enviarWhatsApp(
@@ -47,17 +48,14 @@ export async function enviarWhatsApp(
   message: string
 ): Promise<EnvioResult> {
   try {
-    const client = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
-    const from =
-      process.env.TWILIO_WHATSAPP_FROM ?? "whatsapp:+14155238886";
-    await client.messages.create({
-      from,
-      to: `whatsapp:${to}`,
-      body: message,
+    const vonage = new Vonage({
+      apiKey: process.env.VONAGE_API_KEY ?? "",
+      apiSecret: process.env.VONAGE_API_SECRET ?? "",
     });
+    const from = process.env.VONAGE_WHATSAPP_FROM ?? "14157386170";
+    await vonage.messages.send(
+      new WhatsAppText({ to, from, text: message })
+    );
     return { ok: true };
   } catch (e) {
     return {

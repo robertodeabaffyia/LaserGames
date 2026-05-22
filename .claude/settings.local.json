@@ -4,7 +4,21 @@
       "PowerShell(cd \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\"; Get-ChildItem -Force | ForEach-Object { \"$\\($_.Name\\) [$\\($_.PSProvider.Name\\)]\" })",
       "Bash(mkdir -p \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\.claude\\\\skills\\\\setup-project\")",
       "Bash(mkdir -p \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\.claude\\\\skills\\\\git-workflow\")",
-      "PowerShell(where.exe gh 2>$null; if \\(-not $?\\) { \"gh not found\" })"
+      "PowerShell(where.exe gh 2>$null; if \\(-not $?\\) { \"gh not found\" })",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\src\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object FullName)",
+      "PowerShell(Copy-Item \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\.env.example\" \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\.env.local\")",
+      "Bash(mkdir -p \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\src\\\\app\\\\api\\\\movimientos-caja\\\\[id]\" \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\src\\\\app\\\\api\\\\movimientos-caja\\\\__tests__\" \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\src\\\\app\\\\api\\\\movimientos-caja\\\\[id]\\\\__tests__\" \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\src\\\\app\\\\api\\\\bonos\\\\__tests__\" \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\src\\\\app\\\\api\\\\salarios\\\\procesar-nomina\\\\__tests__\" \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\src\\\\components\\\\caja\" \"C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\src\\\\app\\\\dashboard\\\\caja\" 2>&1)",
+      "Bash(npm test *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git checkout *)",
+      "Bash(dir C:\\\\Users\\\\rabaffy\\\\ClaudeCodeRepo\\\\LaserGames\\\\.env*)",
+      "Bash(npm list *)",
+      "Bash(npm show *)",
+      "Bash(npm install *)",
+      "Bash(node -e \"const {Vonage} = require\\('@vonage/server-sdk'\\); console.log\\('ok'\\); const v = new Vonage\\({apiKey:'k',apiSecret:'s'}\\); console.log\\(typeof v.messages\\)\")",
+      "Bash(npm run *)",
+      "Bash(npx jest *)"
     ]
   }
 }

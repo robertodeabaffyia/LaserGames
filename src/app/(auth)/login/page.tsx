@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { signIn } from "@/app/auth/actions";
 
@@ -10,8 +11,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <div className="bg-gray-900 rounded-2xl p-8 shadow-xl">
+      <div className="flex justify-center mb-6">
+        <Image
+          src="/images/laser-games-logo.svg"
+          alt="Laser Games"
+          width={180}
+          height={66}
+          priority
+        />
+      </div>
       <h1 className="text-2xl font-bold text-white mb-2">Bienvenido</h1>
-      <p className="text-gray-400 text-sm mb-8">Inicia sesión en EventOS</p>
+      <p className="text-gray-400 text-sm mb-8">Inicia sesión en Laser Games</p>
 
       {params.error && (
         <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">

@@ -14,7 +14,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     .select(
       `*,
       cliente:clientes(id, nombre, telefono, email),
-      paquete:paquetes(id, nombre, precio, duracion_horas),
+      paquete:paquetes(id, nombre, precio, duracion_horas, duracion_minutos, cantidad_ninos_incluidos, cantidad_adultos_incluidos),
       pagos(id, monto, metodo, fecha_pago)`
     )
     .eq("id", id)
@@ -63,10 +63,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
   }
 
-  // Fetch current evento (with paquete for base price)
+  // Fetch current evento (with paquete for base price and included counts)
   const { data: current, error: currentError } = await supabase
     .from("eventos")
-    .select("*, paquete:paquetes(precio, duracion_horas)")
+    .select("*, paquete:paquetes(precio, duracion_horas, duracion_minutos, cantidad_ninos_incluidos, cantidad_adultos_incluidos)")
     .eq("id", id)
     .single();
 
@@ -79,12 +79,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
   if (body.fecha_evento) {
     const { data: existingEventos } = await supabase
       .from("eventos")
-      .select("id, fecha_evento, duracion_horas")
+      .select("id, fecha_evento, duracion_horas, duracion_minutos")
       .not("estado", "eq", "cancelado");
 
     if (
       hayConflicto(
-        { fecha_evento: body.fecha_evento, duracion_horas: current.duracion_horas },
+        { fecha_evento: body.fecha_evento, duracion_horas: current.duracion_horas, duracion_minutos: current.duracion_minutos },
         existingEventos ?? [],
         id // exclude self
       )
@@ -101,18 +101,24 @@ export async function PUT(request: NextRequest, { params }: Params) {
   const updates: Record<string, any> = { ...body };
   const pricingChanged =
     body.descuento !== undefined ||
-    body.num_ninos_extra !== undefined ||
-    body.num_adultos !== undefined ||
+    body.cantidad_ninos_totales !== undefined ||
+    body.cantidad_adultos_totales !== undefined ||
     body.precio_nino_extra !== undefined ||
     body.precio_adulto !== undefined;
 
   if (pricingChanged) {
-    const paquete = current.paquete as { precio: number } | null;
+    const paquete = current.paquete as {
+      precio: number;
+      cantidad_ninos_incluidos: number;
+      cantidad_adultos_incluidos: number;
+    } | null;
     updates.precio_total = calcularPrecioTotal({
       precioPaquete: paquete?.precio ?? 0,
-      numNinosExtra: body.num_ninos_extra ?? current.num_ninos_extra,
+      cantidadNinosTotales: body.cantidad_ninos_totales ?? current.cantidad_ninos_totales,
+      ninosIncluidos: paquete?.cantidad_ninos_incluidos ?? 0,
       precioNinoExtra: body.precio_nino_extra ?? current.precio_nino_extra,
-      numAdultos: body.num_adultos ?? current.num_adultos,
+      cantidadAdultosTotales: body.cantidad_adultos_totales ?? current.cantidad_adultos_totales,
+      adultosIncluidos: paquete?.cantidad_adultos_incluidos ?? 0,
       precioAdulto: body.precio_adulto ?? current.precio_adulto,
       descuento: body.descuento ?? current.descuento,
     });

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     .select(
       `*,
       cliente:clientes(id, nombre, telefono),
-      paquete:paquetes(id, nombre, precio, duracion_horas)`
+      paquete:paquetes(id, nombre, precio, duracion_horas, duracion_minutos, cantidad_ninos_incluidos, cantidad_adultos_incluidos)`
     )
     .order("fecha_evento", { ascending: true });
 
@@ -50,10 +50,10 @@ export async function POST(request: NextRequest) {
   if (!body.nombre_festejado)
     return NextResponse.json({ error: "nombre_festejado is required" }, { status: 400 });
 
-  // Fetch paquete for base price and duration
+  // Fetch paquete for base price, duration and included counts
   const { data: paquete, error: paqueteError } = await supabase
     .from("paquetes")
-    .select("precio, duracion_horas")
+    .select("precio, duracion_horas, duracion_minutos, cantidad_ninos_incluidos, cantidad_adultos_incluidos")
     .eq("id", body.paquete_id)
     .single();
 
@@ -64,12 +64,13 @@ export async function POST(request: NextRequest) {
   // Fetch active events for overlap detection (exclude cancelled)
   const { data: existingEventos } = await supabase
     .from("eventos")
-    .select("id, fecha_evento, duracion_horas")
+    .select("id, fecha_evento, duracion_horas, duracion_minutos")
     .not("estado", "eq", "cancelado");
 
   const proposed = {
     fecha_evento: body.fecha_evento,
     duracion_horas: paquete.duracion_horas,
+    duracion_minutos: paquete.duracion_minutos,
   };
 
   if (hayConflicto(proposed, existingEventos ?? [])) {
@@ -81,9 +82,11 @@ export async function POST(request: NextRequest) {
 
   const precio_total = calcularPrecioTotal({
     precioPaquete: paquete.precio,
-    numNinosExtra: body.num_ninos_extra ?? 0,
+    cantidadNinosTotales: body.cantidad_ninos_totales ?? 0,
+    ninosIncluidos: paquete.cantidad_ninos_incluidos,
     precioNinoExtra: body.precio_nino_extra ?? 0,
-    numAdultos: body.num_adultos ?? 0,
+    cantidadAdultosTotales: body.cantidad_adultos_totales ?? 0,
+    adultosIncluidos: paquete.cantidad_adultos_incluidos,
     precioAdulto: body.precio_adulto ?? 0,
     descuento: body.descuento ?? 0,
   });
@@ -93,6 +96,7 @@ export async function POST(request: NextRequest) {
     .insert({
       ...body,
       duracion_horas: paquete.duracion_horas,
+      duracion_minutos: paquete.duracion_minutos,
       precio_total,
       estado: body.estado ?? "pendiente",
     })

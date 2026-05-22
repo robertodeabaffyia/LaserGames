@@ -27,12 +27,16 @@ export interface Evento {
   nombre_festejado: string;
   edad_festejado: number | null;
   num_invitados: number;
-  num_ninos_extra: number;
-  num_adultos: number;
+  /** Total children attending (extras = total − paquete.cantidad_ninos_incluidos) */
+  cantidad_ninos_totales: number;
+  /** Total adults attending (extras = total − paquete.cantidad_adultos_incluidos) */
+  cantidad_adultos_totales: number;
   precio_nino_extra: number;
   precio_adulto: number;
   descuento: number;
   duracion_horas: number;
+  /** Extra minutes copied from paquete at creation time */
+  duracion_minutos: number;
   estado: EventoEstado;
   precio_total: number;
   notas: string | null;
@@ -42,7 +46,15 @@ export interface Evento {
 
 export interface EventoConRelaciones extends Evento {
   cliente: { id: string; nombre: string; telefono: string | null; email: string | null };
-  paquete: { id: string; nombre: string; precio: number; duracion_horas: number };
+  paquete: {
+    id: string;
+    nombre: string;
+    precio: number;
+    duracion_horas: number;
+    duracion_minutos: number;
+    cantidad_ninos_incluidos: number;
+    cantidad_adultos_incluidos: number;
+  };
   pagos?: { id: string; monto: number; metodo: string; fecha_pago: string }[];
 }
 
@@ -53,8 +65,8 @@ export type EventoInsert = {
   nombre_festejado: string;
   edad_festejado?: number | null;
   num_invitados?: number;
-  num_ninos_extra?: number;
-  num_adultos?: number;
+  cantidad_ninos_totales?: number;
+  cantidad_adultos_totales?: number;
   precio_nino_extra?: number;
   precio_adulto?: number;
   descuento?: number;

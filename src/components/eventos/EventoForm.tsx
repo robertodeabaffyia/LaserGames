@@ -40,6 +40,8 @@ export default function EventoForm({
   const [selectedHijoId, setSelectedHijoId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [precioNinoAdicional, setPrecioNinoAdicional] = useState(0);
+  const [precioAdultoAdicional, setPrecioAdultoAdicional] = useState(0);
 
   const [form, setForm] = useState({
     paquete_id: evento?.paquete_id ?? "",
@@ -48,11 +50,8 @@ export default function EventoForm({
       : "",
     nombre_festejado: evento?.nombre_festejado ?? "",
     edad_festejado: evento?.edad_festejado?.toString() ?? "",
-    num_invitados: evento?.num_invitados?.toString() ?? "0",
     cantidad_ninos_totales: evento?.cantidad_ninos_totales?.toString() ?? "0",
     cantidad_adultos_totales: evento?.cantidad_adultos_totales?.toString() ?? "0",
-    precio_nino_extra: evento?.precio_nino_extra?.toString() ?? "0",
-    precio_adulto: evento?.precio_adulto?.toString() ?? "0",
     descuento: evento?.descuento?.toString() ?? "0",
     estado: evento?.estado ?? ("pendiente" as EventoEstado),
     notas: evento?.notas ?? "",
@@ -61,20 +60,38 @@ export default function EventoForm({
   // Price preview
   const selectedPaquete = paquetes.find((p) => p.id === form.paquete_id);
   const precioBase = selectedPaquete?.precio ?? 0;
-  const ninosExtra = Math.max(0, Number(form.cantidad_ninos_totales) - (selectedPaquete?.cantidad_ninos_incluidos ?? 0));
-  const adultosExtra = Math.max(0, Number(form.cantidad_adultos_totales) - (selectedPaquete?.cantidad_adultos_incluidos ?? 0));
+  const ninosIncluidos = selectedPaquete?.cantidad_ninos_incluidos ?? 0;
+  const adultosIncluidos = selectedPaquete?.cantidad_adultos_incluidos ?? 0;
+  const ninosAdicionales = Math.max(0, Number(form.cantidad_ninos_totales) - ninosIncluidos);
+  const adultosAdicionales = Math.max(0, Number(form.cantidad_adultos_totales) - adultosIncluidos);
   const precioPreview =
     precioBase +
-    ninosExtra * Number(form.precio_nino_extra) +
-    adultosExtra * Number(form.precio_adulto) -
+    ninosAdicionales * precioNinoAdicional +
+    adultosAdicionales * precioAdultoAdicional -
     Number(form.descuento);
 
   // Initial data fetch
   useEffect(() => {
     async function init() {
-      const paquetesRes = await fetch("/api/paquetes");
+      const [paquetesRes, configRes] = await Promise.all([
+        fetch("/api/paquetes"),
+        fetch("/api/configuracion"),
+      ]);
+
       const paquetesData = paquetesRes.ok ? await paquetesRes.json() : [];
       setPaquetes(paquetesData ?? []);
+
+      if (configRes.ok) {
+        const cfg = await configRes.json();
+        setPrecioNinoAdicional(cfg?.precio_nino_adicional ?? 0);
+        setPrecioAdultoAdicional(cfg?.precio_adulto_adicional ?? 0);
+      }
+
+      // Edit mode: preserve stored prices from the evento record
+      if (evento) {
+        setPrecioNinoAdicional(evento.precio_nino_extra ?? 0);
+        setPrecioAdultoAdicional(evento.precio_adulto ?? 0);
+      }
 
       // Edit mode: load current client for display (no auto-fill — values come from the evento)
       if (evento?.cliente_id) {
@@ -144,17 +161,20 @@ export default function EventoForm({
 
     setLoading(true);
 
+    const ninosTotales = Number(form.cantidad_ninos_totales);
+    const adultosTotales = Number(form.cantidad_adultos_totales);
+
     const payload = {
       cliente_id: selectedCliente.id,
       paquete_id: form.paquete_id,
       fecha_evento: new Date(form.fecha_evento).toISOString(),
       nombre_festejado: form.nombre_festejado,
       edad_festejado: edadNum,
-      num_invitados: Number(form.num_invitados),
-      cantidad_ninos_totales: Number(form.cantidad_ninos_totales),
-      cantidad_adultos_totales: Number(form.cantidad_adultos_totales),
-      precio_nino_extra: Number(form.precio_nino_extra),
-      precio_adulto: Number(form.precio_adulto),
+      num_invitados: ninosTotales + adultosTotales,
+      cantidad_ninos_totales: ninosTotales,
+      cantidad_adultos_totales: adultosTotales,
+      precio_nino_extra: precioNinoAdicional,
+      precio_adulto: precioAdultoAdicional,
       descuento: Number(form.descuento),
       estado: form.estado,
       notas: form.notas || null,
@@ -311,31 +331,14 @@ export default function EventoForm({
           />
         </div>
 
-        <div>
-          <label className="label">Invitados totales</label>
-          <input
-            type="number"
-            className="input"
-            min={0}
-            value={form.num_invitados}
-            onChange={(e) => set("num_invitados", e.target.value)}
-          />
-        </div>
       </div>
 
-      {/* Pricing section */}
+      {/* Invitados & pricing section */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-300 mb-3">Precios adicionales</h3>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">Invitados</h3>
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="label">
-              Niños totales
-              {selectedPaquete && (
-                <span className="ml-1 text-gray-500 font-normal">
-                  ({selectedPaquete.cantidad_ninos_incluidos} incl.)
-                </span>
-              )}
-            </label>
+            <label className="label">Niños totales</label>
             <input
               type="number"
               className="input"
@@ -343,27 +346,22 @@ export default function EventoForm({
               value={form.cantidad_ninos_totales}
               onChange={(e) => set("cantidad_ninos_totales", e.target.value)}
             />
+            {selectedPaquete && (
+              <p className="mt-1 text-xs text-gray-500">
+                Incluidos: <span className="text-gray-400">{ninosIncluidos}</span>
+                {ninosAdicionales > 0 && (
+                  <span className="ml-2 text-yellow-400">
+                    + {ninosAdicionales} adicionales
+                    {precioNinoAdicional > 0 && (
+                      <> × ${precioNinoAdicional.toLocaleString("es-MX")} = ${(ninosAdicionales * precioNinoAdicional).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</>
+                    )}
+                  </span>
+                )}
+              </p>
+            )}
           </div>
           <div>
-            <label className="label">Precio / niño extra</label>
-            <input
-              type="number"
-              className="input"
-              min={0}
-              step="0.01"
-              value={form.precio_nino_extra}
-              onChange={(e) => set("precio_nino_extra", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="label">
-              Adultos totales
-              {selectedPaquete && (
-                <span className="ml-1 text-gray-500 font-normal">
-                  ({selectedPaquete.cantidad_adultos_incluidos} incl.)
-                </span>
-              )}
-            </label>
+            <label className="label">Adultos totales</label>
             <input
               type="number"
               className="input"
@@ -371,17 +369,19 @@ export default function EventoForm({
               value={form.cantidad_adultos_totales}
               onChange={(e) => set("cantidad_adultos_totales", e.target.value)}
             />
-          </div>
-          <div>
-            <label className="label">Precio / adulto</label>
-            <input
-              type="number"
-              className="input"
-              min={0}
-              step="0.01"
-              value={form.precio_adulto}
-              onChange={(e) => set("precio_adulto", e.target.value)}
-            />
+            {selectedPaquete && (
+              <p className="mt-1 text-xs text-gray-500">
+                Incluidos: <span className="text-gray-400">{adultosIncluidos}</span>
+                {adultosAdicionales > 0 && (
+                  <span className="ml-2 text-yellow-400">
+                    + {adultosAdicionales} adicionales
+                    {precioAdultoAdicional > 0 && (
+                      <> × ${precioAdultoAdicional.toLocaleString("es-MX")} = ${(adultosAdicionales * precioAdultoAdicional).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</>
+                    )}
+                  </span>
+                )}
+              </p>
+            )}
           </div>
         </div>
 

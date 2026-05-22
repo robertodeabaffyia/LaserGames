@@ -28,6 +28,8 @@ const mockConfig = {
   usuario_id: "user-1",
   monto_seña: 1000,
   tarjeta_recargos: { VISA: { "1": 0, "3": 3.5 } },
+  precio_nino_adicional: 150,
+  precio_adulto_adicional: 100,
   created_at: "2026-01-01",
   updated_at: "2026-01-01",
 };

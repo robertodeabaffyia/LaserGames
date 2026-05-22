@@ -114,7 +114,7 @@ export default function ReporteSummary() {
                 <YAxis tick={{ fill: "#9ca3af", fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
                 <Tooltip
                   contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8 }}
-                  formatter={(v: number) => [fmt(v)]}
+                  formatter={(v) => [fmt(Number(v))]}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="Ingresos" fill="#4ade80" radius={[3, 3, 0, 0]} />
@@ -132,7 +132,7 @@ export default function ReporteSummary() {
                 <YAxis tick={{ fill: "#9ca3af", fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
                 <Tooltip
                   contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8 }}
-                  formatter={(v: number) => [fmt(v)]}
+                  formatter={(v) => [fmt(Number(v))]}
                 />
                 <Line type="monotone" dataKey="Ganancia" stroke="#818cf8" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>

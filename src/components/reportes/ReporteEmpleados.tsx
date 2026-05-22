@@ -117,7 +117,7 @@ export default function ReporteEmpleados() {
                 <YAxis tick={{ fill: "#9ca3af", fontSize: 11 }} />
                 <Tooltip
                   contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8 }}
-                  formatter={(v: number, key) => [key === "Horas" ? `${v}h` : fmt(v), key]}
+                  formatter={(v, key) => [key === "Horas" ? `${Number(v)}h` : fmt(Number(v)), key]}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="Horas"   fill="#818cf8" radius={[3, 3, 0, 0]} />

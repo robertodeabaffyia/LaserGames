@@ -1,3 +1,5 @@
+"use client";
+
 import BirthdayWidget from "@/components/dashboard/BirthdayWidget";
 import PendingEventsWidget from "@/components/dashboard/PendingEventsWidget";
 import PagosWidget from "@/components/dashboard/PagosWidget";

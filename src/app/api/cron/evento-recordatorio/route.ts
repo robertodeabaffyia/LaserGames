@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   const errores: string[] = [];
 
   for (const ev of eventos ?? []) {
-    const cliente = ev.cliente as { id: string; nombre: string; email: string | null; telefono: string | null } | null;
+    const cliente = (ev.cliente as unknown) as { id: string; nombre: string; email: string | null; telefono: string | null } | null;
     if (!cliente) continue;
 
     // Check if already notified for this event + tipo

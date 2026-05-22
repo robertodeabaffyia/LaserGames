@@ -38,7 +38,7 @@ export default function KPICard({ label, value, sub, color = "default", spark, i
               <Line type="monotone" dataKey="v" stroke={c.line} dot={false} strokeWidth={1.5} />
               <Tooltip
                 contentStyle={{ background: "#1f2937", border: "none", fontSize: 11 }}
-                formatter={(v: number) => [v]}
+                formatter={(v) => [v]}
                 labelFormatter={() => ""}
               />
             </LineChart>

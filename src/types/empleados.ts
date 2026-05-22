@@ -33,7 +33,7 @@ export interface RegistroHoras {
 }
 
 export interface RegistroHorasConEmpleado extends RegistroHoras {
-  empleado: { id: string; nombre: string; rol: EmpleadoRol };
+  empleado: { id: string; nombre: string; rol: EmpleadoRol; tarifa_horaria: number | null };
 }
 
 export interface ResumenHorasEmpleado {

@@ -121,12 +121,12 @@ export default function ReporteMovimientos() {
                 <PieChart>
                   <Pie data={ingresosCats.map((c) => ({ name: CATEGORIA_LABELS[c.categoria] ?? c.categoria, value: c.total }))}
                     cx="50%" cy="50%" outerRadius={75} dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                     labelLine={false}>
                     {ingresosCats.map((_, i) => <Cell key={i} fill={COLORS_ING[i % COLORS_ING.length]} />)}
                   </Pie>
                   <Tooltip contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8 }}
-                    formatter={(v: number) => [fmt(v)]} />
+                    formatter={(v) => [fmt(Number(v))]} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -136,12 +136,12 @@ export default function ReporteMovimientos() {
                 <PieChart>
                   <Pie data={egresosCats.map((c) => ({ name: CATEGORIA_LABELS[c.categoria] ?? c.categoria, value: c.total }))}
                     cx="50%" cy="50%" outerRadius={75} dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                     labelLine={false}>
                     {egresosCats.map((_, i) => <Cell key={i} fill={COLORS_EGR[i % COLORS_EGR.length]} />)}
                   </Pie>
                   <Tooltip contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8 }}
-                    formatter={(v: number) => [fmt(v)]} />
+                    formatter={(v) => [fmt(Number(v))]} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -156,7 +156,7 @@ export default function ReporteMovimientos() {
                 <YAxis tick={{ fill: "#9ca3af", fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
                 <Tooltip
                   contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8 }}
-                  formatter={(v: number) => [fmt(v)]}
+                  formatter={(v) => [fmt(Number(v))]}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="Total" radius={[3, 3, 0, 0]}

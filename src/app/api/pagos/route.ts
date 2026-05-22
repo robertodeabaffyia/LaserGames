@@ -108,12 +108,13 @@ export async function POST(request: NextRequest) {
 
   // ── Fetch config ───────────────────────────────────────────────────────────
 
-  const { data: config } = await supabase
+  const { data: configRaw } = await supabase
     .from("configuraciones")
-    .select("monto_seña, tarjeta_recargos")
+    .select("*")
     .eq("usuario_id", user.id)
     .single();
 
+  const config = configRaw as { monto_seña?: number; tarjeta_recargos?: TarjetaRecargos } | null;
   const montoSeña = config?.monto_seña ?? 0;
 
   // Calculate recargo for tarjeta payments

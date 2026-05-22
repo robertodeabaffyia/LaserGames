@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     empleado: { id: string; nombre: string; rol: string; tarifa_horaria: number | null } | null;
   };
 
-  const rows = (registros as Registro[]).map((r) => ({
+  const rows = (registros as unknown as Registro[]).map((r) => ({
     Empleado: r.empleado?.nombre ?? "—",
     Rol: r.empleado?.rol ?? "—",
     Fecha: r.fecha,
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     string,
     { nombre: string; rol: string; tarifa: number | null; horas: number; costo: number }
   >();
-  for (const r of registros as Registro[]) {
+  for (const r of registros as unknown as Registro[]) {
     const empId = r.empleado?.id ?? "unknown";
     if (!byEmpleado.has(empId)) {
       byEmpleado.set(empId, {
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
   const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
   const filename = `reporte_horas_${mes}.xlsx`;
 
-  return new Response(buffer, {
+  return new Response(buffer as unknown as BodyInit, {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

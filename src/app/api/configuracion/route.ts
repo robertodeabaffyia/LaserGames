@@ -96,6 +96,8 @@ export async function PUT(request: NextRequest) {
         usuario_id: user.id,
         monto_seña: body.monto_seña,
         tarjeta_recargos: body.tarjeta_recargos,
+        ...(body.precio_nino_adicional !== undefined && { precio_nino_adicional: body.precio_nino_adicional }),
+        ...(body.precio_adulto_adicional !== undefined && { precio_adulto_adicional: body.precio_adulto_adicional }),
       },
       { onConflict: "usuario_id" }
     )

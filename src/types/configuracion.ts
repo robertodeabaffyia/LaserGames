@@ -21,6 +21,10 @@ export interface Configuracion {
   usuario_id: string;
   monto_seña: number;
   tarjeta_recargos: TarjetaRecargos;
+  /** Price charged per extra child above paquete.cantidad_ninos_incluidos */
+  precio_nino_adicional: number;
+  /** Price charged per extra adult above paquete.cantidad_adultos_incluidos */
+  precio_adulto_adicional: number;
   created_at: string;
   updated_at: string;
 }
@@ -28,4 +32,6 @@ export interface Configuracion {
 export type ConfiguracionUpdate = {
   monto_seña: number;
   tarjeta_recargos: TarjetaRecargos;
+  precio_nino_adicional?: number;
+  precio_adulto_adicional?: number;
 };

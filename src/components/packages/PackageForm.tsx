@@ -14,7 +14,8 @@ interface FormState {
   descripcion: string;
   precio: string;
   duracion_horas: string;
-  max_invitados: string;
+  cantidad_ninos_max: string;
+  cantidad_adultos_max: string;
   es_activo: boolean;
 }
 
@@ -31,7 +32,8 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
     descripcion: paquete?.descripcion ?? "",
     precio: paquete?.precio?.toString() ?? "",
     duracion_horas: paquete?.duracion_horas?.toString() ?? "2",
-    max_invitados: paquete?.max_invitados?.toString() ?? "20",
+    cantidad_ninos_max: paquete?.cantidad_ninos_max?.toString() ?? "20",
+    cantidad_adultos_max: paquete?.cantidad_adultos_max?.toString() ?? "5",
     es_activo: paquete?.es_activo ?? true,
   });
 
@@ -78,7 +80,8 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
       descripcion: form.descripcion || null,
       precio: parseFloat(form.precio),
       duracion_horas: parseInt(form.duracion_horas, 10),
-      max_invitados: parseInt(form.max_invitados, 10),
+      cantidad_ninos_max: parseInt(form.cantidad_ninos_max, 10),
+      cantidad_adultos_max: parseInt(form.cantidad_adultos_max, 10),
       es_activo: form.es_activo,
       items: selectedItems satisfies ItemInput[],
     };
@@ -177,14 +180,26 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
         </div>
 
         <div>
-          <label className="label">Máx. invitados</label>
+          <label className="label">Máx. niños</label>
           <input
             required
             type="number"
-            min="1"
+            min="0"
             className="input"
-            value={form.max_invitados}
-            onChange={(e) => setForm((f) => ({ ...f, max_invitados: e.target.value }))}
+            value={form.cantidad_ninos_max}
+            onChange={(e) => setForm((f) => ({ ...f, cantidad_ninos_max: e.target.value }))}
+          />
+        </div>
+
+        <div>
+          <label className="label">Máx. adultos</label>
+          <input
+            required
+            type="number"
+            min="0"
+            className="input"
+            value={form.cantidad_adultos_max}
+            onChange={(e) => setForm((f) => ({ ...f, cantidad_adultos_max: e.target.value }))}
           />
         </div>
 

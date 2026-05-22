@@ -16,7 +16,10 @@ export interface Paquete {
   duracion_horas: number;
   /** Extra minutes on top of duracion_horas (0–59) */
   duracion_minutos: number;
-  max_invitados: number;
+  /** Maximum children the venue can accommodate */
+  cantidad_ninos_max: number;
+  /** Maximum adults the venue can accommodate */
+  cantidad_adultos_max: number;
   /** Children included in the package price */
   cantidad_ninos_incluidos: number;
   /** Adults included in the package price */

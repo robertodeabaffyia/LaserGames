@@ -194,6 +194,27 @@ export default function EventoDetailPage() {
               <dd className="text-white font-medium mt-0.5">{evento.paquete?.nombre}</dd>
             </div>
             <div>
+              <dt className="text-xs text-gray-500">Hora</dt>
+              <dd className="text-gray-300 mt-0.5">
+                {new Date(evento.fecha_evento).toLocaleTimeString("es-MX", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">Estado</dt>
+              <dd className="mt-0.5">
+                <span
+                  className={`text-xs font-semibold capitalize px-2 py-0.5 rounded-full border ${
+                    ESTADO_COLORS[evento.estado] ?? "text-gray-400 border-gray-600"
+                  }`}
+                >
+                  {evento.estado.replace("_", " ")}
+                </span>
+              </dd>
+            </div>
+            <div>
               <dt className="text-xs text-gray-500">Duración</dt>
               <dd className="text-gray-300 mt-0.5">
                 {formatDuration(evento.duracion_horas, evento.duracion_minutos)}
@@ -204,11 +225,27 @@ export default function EventoDetailPage() {
               <dd className="text-gray-300 mt-0.5">{evento.num_invitados ?? 0}</dd>
             </div>
             <div>
+              <dt className="text-xs text-gray-500">Niños totales</dt>
+              <dd className="text-gray-300 mt-0.5">{evento.cantidad_ninos_totales}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">Adultos totales</dt>
+              <dd className="text-gray-300 mt-0.5">{evento.cantidad_adultos_totales}</dd>
+            </div>
+            <div>
               <dt className="text-xs text-gray-500">Precio total</dt>
               <dd className="text-white font-bold mt-0.5">
                 ${evento.precio_total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </dd>
             </div>
+            {evento.descuento > 0 && (
+              <div>
+                <dt className="text-xs text-gray-500">Descuento</dt>
+                <dd className="text-green-400 font-medium mt-0.5">
+                  -${evento.descuento.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                </dd>
+              </div>
+            )}
             {evento.notas && (
               <div className="col-span-2">
                 <dt className="text-xs text-gray-500">Notas</dt>
@@ -216,6 +253,53 @@ export default function EventoDetailPage() {
               </div>
             )}
           </dl>
+
+          {/* ── Pagos Realizados ── */}
+          <div className="mt-6 pt-5 border-t border-gray-800">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
+              Pagos Realizados
+            </h3>
+
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm mb-4">
+              <div>
+                <dt className="text-xs text-gray-500">Total pagado</dt>
+                <dd className="text-white font-bold mt-0.5">
+                  ${totalPagado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-gray-500">Saldo pendiente</dt>
+                <dd className={`font-bold mt-0.5 ${saldo > 0 ? "text-red-400" : "text-green-400"}`}>
+                  ${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                </dd>
+              </div>
+            </div>
+
+            {pagos.length === 0 ? (
+              <p className="text-sm text-gray-500 italic">Sin pagos registrados</p>
+            ) : (
+              <ul className="space-y-2">
+                {pagos.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between rounded-lg bg-gray-800/50 px-4 py-2.5 text-sm"
+                  >
+                    <span className="text-gray-400">
+                      {new Date(p.fecha_pago).toLocaleDateString("es-MX", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                    <span className="text-xs text-gray-500 capitalize">{p.metodo}</span>
+                    <span className="text-white font-medium">
+                      ${montoEfectivo(p).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 

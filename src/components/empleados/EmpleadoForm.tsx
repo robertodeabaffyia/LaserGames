@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { EMPLEADO_ROLES, type Empleado, type EmpleadoRol } from "@/types/empleados";
+import { getRolesDisponibles, type Empleado, type EmpleadoRol, type UsuarioRol } from "@/types/empleados";
 
 interface EmpleadoFormProps {
   empleado?: Empleado;
   onSuccess: () => void;
   onCancel: () => void;
+  currentUserRole?: UsuarioRol;
 }
 
-export default function EmpleadoForm({ empleado, onSuccess, onCancel }: EmpleadoFormProps) {
+export default function EmpleadoForm({ empleado, onSuccess, onCancel, currentUserRole = "general" }: EmpleadoFormProps) {
   const isEditing = !!empleado;
 
   const [form, setForm] = useState({
@@ -103,7 +104,7 @@ export default function EmpleadoForm({ empleado, onSuccess, onCancel }: Empleado
             onChange={(e) => set("rol", e.target.value)}
             required
           >
-            {EMPLEADO_ROLES.map((r) => (
+            {getRolesDisponibles(currentUserRole).map((r) => (
               <option key={r} value={r}>
                 {r.charAt(0).toUpperCase() + r.slice(1)}
               </option>

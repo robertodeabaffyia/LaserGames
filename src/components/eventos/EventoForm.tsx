@@ -44,6 +44,10 @@ export default function EventoForm({
   const [error, setError] = useState<string | null>(null);
   const [precioNinoAdicional, setPrecioNinoAdicional] = useState(0);
   const [precioAdultoAdicional, setPrecioAdultoAdicional] = useState(0);
+  const [duracion, setDuracion] = useState({
+    horas: evento?.duracion_horas ?? 0,
+    minutos: evento?.duracion_minutos ?? 0,
+  });
 
   // eventoFechaToLocal converts the UTC timestamp from the DB into local
   // date + time strings so the form always shows what the user originally entered.
@@ -190,7 +194,11 @@ export default function EventoForm({
       descuento: Number(form.descuento),
       estado: form.estado,
       notas: form.notas || null,
+      duracion_horas: duracion.horas,
+      duracion_minutos: duracion.minutos,
     };
+
+    console.log("[EventoForm] duracion al enviar:", duracion);
 
     const url = isEditing ? `/api/eventos/${evento!.id}` : "/api/eventos";
     const method = isEditing ? "PUT" : "POST";
@@ -262,7 +270,15 @@ export default function EventoForm({
           <select
             className="input"
             value={form.paquete_id}
-            onChange={(e) => set("paquete_id", e.target.value)}
+            onChange={(e) => {
+              const newId = e.target.value;
+              const paq = paquetes.find((p) => p.id === newId);
+              set("paquete_id", newId);
+              if (paq) {
+                console.log("[EventoForm] paquete seleccionado:", { id: paq.id, nombre: paq.nombre, duracion_horas: paq.duracion_horas, duracion_minutos: paq.duracion_minutos });
+                setDuracion({ horas: paq.duracion_horas ?? 0, minutos: paq.duracion_minutos ?? 0 });
+              }
+            }}
             required
           >
             <option value="">Selecciona un paquete</option>

@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import EmpleadoForm from "@/components/empleados/EmpleadoForm";
 import EmpleadoPerfil from "@/components/empleados/EmpleadoPerfil";
-import type { Empleado, RegistroHoras } from "@/types/empleados";
+import type { Empleado, RegistroHoras, UsuarioRol } from "@/types/empleados";
+import { createClient } from "@/lib/supabase/client";
 
 type EmpleadoConHoras = Empleado & { registros_horas: RegistroHoras[] };
 
@@ -21,6 +22,20 @@ export default function EmpleadoDetailPage() {
   const [empleado, setEmpleado] = useState<EmpleadoConHoras | null>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<UsuarioRol>("general");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data } = await supabase
+        .from("usuarios")
+        .select("rol")
+        .eq("id", user.id)
+        .single();
+      if (data?.rol) setCurrentUserRole(data.rol as UsuarioRol);
+    });
+  }, []);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/empleados/${id}`);
@@ -58,6 +73,7 @@ export default function EmpleadoDetailPage() {
               empleado={empleado}
               onSuccess={() => { setEditMode(false); load(); }}
               onCancel={() => setEditMode(false)}
+              currentUserRole={currentUserRole}
             />
           </>
         ) : (

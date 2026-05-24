@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import EmpleadoForm from "@/components/empleados/EmpleadoForm";
 import EmpleadoList from "@/components/empleados/EmpleadoList";
 import ReporteHorasEmpleados from "@/components/empleados/ReporteHorasEmpleados";
-import type { Empleado } from "@/types/empleados";
+import type { Empleado, UsuarioRol } from "@/types/empleados";
+import { createClient } from "@/lib/supabase/client";
 
 type Tab = "lista" | "reporte";
 
@@ -13,6 +14,20 @@ export default function EmpleadosPage() {
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState<Empleado | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [currentUserRole, setCurrentUserRole] = useState<UsuarioRol>("general");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data } = await supabase
+        .from("usuarios")
+        .select("rol")
+        .eq("id", user.id)
+        .single();
+      if (data?.rol) setCurrentUserRole(data.rol as UsuarioRol);
+    });
+  }, []);
 
   function handleSuccess() {
     setShowForm(false);
@@ -59,6 +74,7 @@ export default function EmpleadosPage() {
             empleado={editando ?? undefined}
             onSuccess={handleSuccess}
             onCancel={() => { setShowForm(false); setEditando(null); }}
+            currentUserRole={currentUserRole}
           />
         </div>
       )}

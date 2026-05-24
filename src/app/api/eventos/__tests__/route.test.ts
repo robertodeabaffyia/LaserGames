@@ -247,4 +247,21 @@ describe("POST /api/eventos", () => {
     const res = await POST(badReq);
     expect(res.status).toBe(400);
   });
+
+  it("copies duracion_horas=2 and duracion_minutos=30 from a 2h30m paquete", async () => {
+    const paquete2h30 = { ...mockPaquete, duracion_horas: 2, duracion_minutos: 30 };
+    const insertChain = chain({ data: { ...mockEvento, duracion_horas: 2, duracion_minutos: 30 }, error: null });
+
+    mockFrom
+      .mockReturnValueOnce(chain({ data: paquete2h30, error: null }))
+      .mockReturnValueOnce(chain({ data: [], error: null }))
+      .mockReturnValueOnce(insertChain);
+
+    const res = await POST(req("POST", "http://localhost/api/eventos", validBody));
+
+    expect(res.status).toBe(201);
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ duracion_horas: 2, duracion_minutos: 30 })
+    );
+  });
 });

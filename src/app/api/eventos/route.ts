@@ -83,10 +83,10 @@ export async function POST(request: NextRequest) {
   const precio_total = calcularPrecioTotal({
     precioPaquete: paquete.precio,
     cantidadNinosTotales: body.cantidad_ninos_totales ?? 0,
-    ninosIncluidos: paquete.cantidad_ninos_incluidos,
+    ninosIncluidos: paquete.cantidad_ninos_incluidos ?? 0,
     precioNinoExtra: body.precio_nino_extra ?? 0,
     cantidadAdultosTotales: body.cantidad_adultos_totales ?? 0,
-    adultosIncluidos: paquete.cantidad_adultos_incluidos,
+    adultosIncluidos: paquete.cantidad_adultos_incluidos ?? 0,
     precioAdulto: body.precio_adulto ?? 0,
     descuento: body.descuento ?? 0,
   });

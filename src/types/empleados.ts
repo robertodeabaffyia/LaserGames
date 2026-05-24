@@ -1,10 +1,22 @@
 export type EmpleadoRol = "administrador" | "supervisor" | "general";
 
+/** Role stored in the `usuarios` table (auth/permissions layer). */
+export type UsuarioRol = "admin" | "supervisor" | "general";
+
 export const EMPLEADO_ROLES: EmpleadoRol[] = [
   "administrador",
   "supervisor",
   "general",
 ];
+
+/**
+ * Returns the subset of EMPLEADO_ROLES the current user is allowed to assign.
+ * Admins can assign any role; supervisors and below cannot assign "administrador".
+ */
+export function getRolesDisponibles(currentUserRole: UsuarioRol): EmpleadoRol[] {
+  if (currentUserRole === "admin") return EMPLEADO_ROLES;
+  return EMPLEADO_ROLES.filter((r) => r !== "administrador");
+}
 
 export interface Empleado {
   id: string;

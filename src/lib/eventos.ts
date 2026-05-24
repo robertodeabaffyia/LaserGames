@@ -57,6 +57,33 @@ export function combineFechaHora(fecha: string, hora: string): string {
   return fechaEventoToISO(`${fecha}T${hora || "00:00"}`);
 }
 
+/**
+ * Extract the **local** date and time from a UTC ISO timestamp (as stored in
+ * the DB) so the edit form shows the same wall-clock time the user originally
+ * entered, regardless of the host machine's UTC offset.
+ *
+ * Bug this fixes: using `.toISOString().slice(0,10/11,16)` returns UTC digits,
+ * causing a ±N-hour shift when the user re-opens the edit form. For example, a
+ * user in UTC-3 who saves "15:30 local" sees "18:30" on re-open because the
+ * DB stores "18:30 UTC" and `.toISOString()` echoes that UTC value back.
+ *
+ * Using `getFullYear/Month/Date/Hours/Minutes` reads the Date object in the
+ * local timezone, which is the inverse of how `new Date("YYYY-MM-DDTHH:MM")`
+ * interprets a datetime-local string — making the round-trip lossless.
+ */
+export function eventoFechaToLocal(isoTimestamp: string): { fecha: string; hora: string } {
+  const d = new Date(isoTimestamp);
+  const year  = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day   = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const mins  = String(d.getMinutes()).padStart(2, "0");
+  return {
+    fecha: `${year}-${month}-${day}`,
+    hora:  `${hours}:${mins}`,
+  };
+}
+
 export interface EventoSlot {
   id: string;
   fecha_evento: string; // ISO timestamptz

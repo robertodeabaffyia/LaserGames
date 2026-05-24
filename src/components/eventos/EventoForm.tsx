@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { EVENTO_ESTADOS, type EventoEstado, type Evento } from "@/types/eventos";
 import { calcularEdad, MIN_EDAD_FESTEJADO } from "@/lib/validaciones";
 import { formatDuration } from "@/lib/duration";
-import { calcularPrecioTotal, combineFechaHora } from "@/lib/eventos";
+import { calcularPrecioTotal, combineFechaHora, eventoFechaToLocal } from "@/lib/eventos";
 import ClienteAutocomplete, {
   type ClienteResumen,
 } from "@/components/clientes/ClienteAutocomplete";
@@ -45,16 +45,16 @@ export default function EventoForm({
   const [precioNinoAdicional, setPrecioNinoAdicional] = useState(0);
   const [precioAdultoAdicional, setPrecioAdultoAdicional] = useState(0);
 
+  // eventoFechaToLocal converts the UTC timestamp from the DB into local
+  // date + time strings so the form always shows what the user originally entered.
+  const initialDateTime = evento?.fecha_evento
+    ? eventoFechaToLocal(evento.fecha_evento)
+    : { fecha: "", hora: "" };
+
   const [form, setForm] = useState({
     paquete_id: evento?.paquete_id ?? "",
-    // Split into separate fields to avoid the React controlled-input cursor-reset
-    // bug that prevents editing the hour segment of <input type="datetime-local">.
-    fecha: evento?.fecha_evento
-      ? new Date(evento.fecha_evento).toISOString().slice(0, 10)   // "YYYY-MM-DD"
-      : "",
-    hora: evento?.fecha_evento
-      ? new Date(evento.fecha_evento).toISOString().slice(11, 16)  // "HH:MM"
-      : "",
+    fecha: initialDateTime.fecha,
+    hora:  initialDateTime.hora,
     nombre_festejado: evento?.nombre_festejado ?? "",
     edad_festejado: evento?.edad_festejado?.toString() ?? "",
     cantidad_ninos_totales: evento?.cantidad_ninos_totales?.toString() ?? "0",

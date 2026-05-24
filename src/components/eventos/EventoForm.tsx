@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { EVENTO_ESTADOS, type EventoEstado, type Evento } from "@/types/eventos";
 import { calcularEdad, MIN_EDAD_FESTEJADO } from "@/lib/validaciones";
 import { formatDuration } from "@/lib/duration";
-import { calcularPrecioTotal, fechaEventoToISO } from "@/lib/eventos";
+import { calcularPrecioTotal, combineFechaHora } from "@/lib/eventos";
 import ClienteAutocomplete, {
   type ClienteResumen,
 } from "@/components/clientes/ClienteAutocomplete";
@@ -47,8 +47,13 @@ export default function EventoForm({
 
   const [form, setForm] = useState({
     paquete_id: evento?.paquete_id ?? "",
-    fecha_evento: evento?.fecha_evento
-      ? new Date(evento.fecha_evento).toISOString().slice(0, 16)
+    // Split into separate fields to avoid the React controlled-input cursor-reset
+    // bug that prevents editing the hour segment of <input type="datetime-local">.
+    fecha: evento?.fecha_evento
+      ? new Date(evento.fecha_evento).toISOString().slice(0, 10)   // "YYYY-MM-DD"
+      : "",
+    hora: evento?.fecha_evento
+      ? new Date(evento.fecha_evento).toISOString().slice(11, 16)  // "HH:MM"
       : "",
     nombre_festejado: evento?.nombre_festejado ?? "",
     edad_festejado: evento?.edad_festejado?.toString() ?? "",
@@ -174,7 +179,7 @@ export default function EventoForm({
     const payload = {
       cliente_id: selectedCliente.id,
       paquete_id: form.paquete_id,
-      fecha_evento: fechaEventoToISO(form.fecha_evento),
+      fecha_evento: combineFechaHora(form.fecha, form.hora),
       nombre_festejado: form.nombre_festejado,
       edad_festejado: edadNum,
       num_invitados: ninosTotales + adultosTotales,
@@ -269,16 +274,30 @@ export default function EventoForm({
           </select>
         </div>
 
-        {/* Fecha y hora */}
+        {/* Fecha */}
         <div>
-          <label className="label">Fecha y hora *</label>
+          <label className="label">Fecha *</label>
           <input
-            type="datetime-local"
+            type="date"
             className="input"
-            value={form.fecha_evento}
-            onChange={(e) => set("fecha_evento", e.target.value)}
+            value={form.fecha}
+            onChange={(e) => set("fecha", e.target.value)}
             required
-            data-testid="fecha-evento-input"
+            data-testid="fecha-evento-date-input"
+          />
+        </div>
+
+        {/* Hora — split from datetime-local to avoid Chrome's controlled-input
+            cursor-reset bug that prevents editing the hour segment. */}
+        <div>
+          <label className="label">Hora *</label>
+          <input
+            type="time"
+            className="input"
+            value={form.hora}
+            onChange={(e) => set("hora", e.target.value)}
+            required
+            data-testid="fecha-evento-time-input"
           />
         </div>
 

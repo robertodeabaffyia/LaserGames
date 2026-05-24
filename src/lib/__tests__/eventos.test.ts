@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { calcularPrecioTotal, fechaEventoToISO, hayConflicto, type EventoSlot } from "../eventos";
+import { calcularPrecioTotal, fechaEventoToISO, combineFechaHora, hayConflicto, type EventoSlot } from "../eventos";
 
 describe("calcularPrecioTotal", () => {
   it("returns paquete price when no extras (all within included counts)", () => {
@@ -141,6 +141,46 @@ describe("fechaEventoToISO", () => {
     const input = "2026-07-04T09:00";
     fechaEventoToISO(input);
     expect(input).toBe("2026-07-04T09:00");
+  });
+});
+
+// ── combineFechaHora ──────────────────────────────────────────────────────────
+
+describe("combineFechaHora", () => {
+  it("combines date and time strings into a valid ISO timestamp", () => {
+    const result = combineFechaHora("2026-06-15", "14:30");
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
+
+  it("preserves the correct date when combining", () => {
+    const result = combineFechaHora("2026-06-15", "10:00");
+    expect(result).toMatch(/^2026-06-15/);
+  });
+
+  it("produces different timestamps for different hora values (hour editing works)", () => {
+    const morning = combineFechaHora("2026-06-15", "09:00");
+    const evening = combineFechaHora("2026-06-15", "19:00");
+    expect(morning).not.toBe(evening);
+  });
+
+  it("produces different timestamps for different minute values", () => {
+    const t1 = combineFechaHora("2026-06-15", "10:00");
+    const t2 = combineFechaHora("2026-06-15", "10:30");
+    expect(t1).not.toBe(t2);
+  });
+
+  it("falls back to midnight local time when hora is empty", () => {
+    const result = combineFechaHora("2026-06-15", "");
+    // Must be a valid ISO-8601 string.
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    // The local-midnight timestamp must equal what fechaEventoToISO produces for the same date+00:00.
+    expect(result).toBe(fechaEventoToISO("2026-06-15T00:00"));
+  });
+
+  it("is equivalent to fechaEventoToISO for the same combined string", () => {
+    expect(combineFechaHora("2026-06-15", "14:30")).toBe(
+      fechaEventoToISO("2026-06-15T14:30")
+    );
   });
 });
 

@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { calcularPrecioTotal, fechaEventoToISO, combineFechaHora, hayConflicto, type EventoSlot } from "../eventos";
+import { calcularPrecioTotal, fechaEventoToISO, combineFechaHora, eventoFechaToLocal, hayConflicto, type EventoSlot } from "../eventos";
 
 describe("calcularPrecioTotal", () => {
   it("returns paquete price when no extras (all within included counts)", () => {
@@ -141,6 +141,68 @@ describe("fechaEventoToISO", () => {
     const input = "2026-07-04T09:00";
     fechaEventoToISO(input);
     expect(input).toBe("2026-07-04T09:00");
+  });
+});
+
+// ── eventoFechaToLocal ────────────────────────────────────────────────────────
+// All assertions are timezone-agnostic: we test the round-trip identity
+//   combineFechaHora(eventoFechaToLocal(ts)) === original timestamp
+// rather than asserting specific UTC digits, which would break in CI
+// environments with a different UTC offset.
+
+describe("eventoFechaToLocal", () => {
+  it("returns an object with fecha and hora string keys", () => {
+    const result = eventoFechaToLocal("2026-05-23T18:30:00.000Z");
+    expect(typeof result.fecha).toBe("string");
+    expect(typeof result.hora).toBe("string");
+  });
+
+  it("fecha is formatted as YYYY-MM-DD", () => {
+    const { fecha } = eventoFechaToLocal("2026-05-23T18:30:00.000Z");
+    expect(fecha).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("hora is formatted as HH:MM", () => {
+    const { hora } = eventoFechaToLocal("2026-05-23T18:30:00.000Z");
+    expect(hora).toMatch(/^\d{2}:\d{2}$/);
+  });
+
+  it("round-trips losslessly through combineFechaHora (core timezone correctness)", () => {
+    // Simulates the full edit-form cycle:
+    //   DB timestamp → eventoFechaToLocal → user sees local time in form
+    //   → user saves → combineFechaHora → same UTC timestamp back in DB
+    const original = "2026-05-23T18:30:00.000Z";
+    const { fecha, hora } = eventoFechaToLocal(original);
+    const roundTripped = combineFechaHora(fecha, hora);
+    expect(new Date(roundTripped).getTime()).toBe(new Date(original).getTime());
+  });
+
+  it("round-trip holds for midnight UTC", () => {
+    const original = "2026-12-31T00:00:00.000Z";
+    const { fecha, hora } = eventoFechaToLocal(original);
+    expect(new Date(combineFechaHora(fecha, hora)).getTime())
+      .toBe(new Date(original).getTime());
+  });
+
+  it("round-trip holds for an arbitrary timestamp with non-zero minutes", () => {
+    const original = "2026-07-04T21:45:00.000Z";
+    const { fecha, hora } = eventoFechaToLocal(original);
+    expect(new Date(combineFechaHora(fecha, hora)).getTime())
+      .toBe(new Date(original).getTime());
+  });
+
+  it("does NOT use UTC digits directly (regression guard for the 3h-shift bug)", () => {
+    // If the machine running this test is not UTC, and we were naively slicing
+    // .toISOString(), the hora would differ from the local-time value.
+    // The round-trip test above already catches this; this test makes it explicit.
+    const original = "2026-05-23T18:30:00.000Z";
+    const { fecha, hora } = eventoFechaToLocal(original);
+    const localDate = new Date(original);
+    const expectedHora = [
+      String(localDate.getHours()).padStart(2, "0"),
+      String(localDate.getMinutes()).padStart(2, "0"),
+    ].join(":");
+    expect(hora).toBe(expectedHora);
   });
 });
 

@@ -17,6 +17,10 @@ const NAV = [
   { href: "/dashboard/reportes",  label: "Reportes",   icon: "📊" },
 ];
 
+const SUPERVISOR_NAV = [
+  { href: "/dashboard/registros-horas", label: "Registros de Horas", icon: "⏱️" },
+];
+
 const ADMIN_NAV = [
   { href: "/admin/configuracion",  label: "Configuración",  icon: "⚙️" },
   { href: "/admin/notificaciones", label: "Notificaciones", icon: "🔔" },
@@ -42,7 +46,7 @@ function NavLink({ href, icon, label }: { href: string; icon: string; label: str
 }
 
 export default function Sidebar() {
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [userRol, setUserRol] = useState<string>("");
 
   useEffect(() => {
     const supabase = createClient();
@@ -53,9 +57,12 @@ export default function Sidebar() {
         .select("rol")
         .eq("id", user.id)
         .single();
-      setIsAdmin(data?.rol === "admin");
+      setUserRol(data?.rol ?? "general");
     });
   }, []);
+
+  const isAdmin = userRol === "admin";
+  const isSupervisorOrAbove = userRol === "admin" || userRol === "supervisor";
 
   return (
     <aside className="w-56 shrink-0 border-r border-gray-800 flex flex-col">
@@ -73,6 +80,10 @@ export default function Sidebar() {
 
       <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto">
         {NAV.map((item) => (
+          <NavLink key={item.href} {...item} />
+        ))}
+
+        {isSupervisorOrAbove && SUPERVISOR_NAV.map((item) => (
           <NavLink key={item.href} {...item} />
         ))}
 

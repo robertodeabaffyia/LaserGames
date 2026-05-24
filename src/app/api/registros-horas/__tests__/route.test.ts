@@ -79,6 +79,56 @@ describe("GET /api/registros-horas", () => {
     expect(c.lte).toHaveBeenCalledWith("fecha", "2026-05-31");
   });
 
+  it("filters by fecha_inicio only (no mes param)", async () => {
+    const c = chain({ data: [], error: null });
+    mockFrom.mockReturnValue(c);
+
+    await GET(new NextRequest("http://localhost/api/registros-horas?fecha_inicio=2026-05-01"));
+    expect(c.gte).toHaveBeenCalledWith("fecha", "2026-05-01");
+    expect(c.lte).not.toHaveBeenCalled();
+  });
+
+  it("filters by fecha_fin only (no mes param)", async () => {
+    const c = chain({ data: [], error: null });
+    mockFrom.mockReturnValue(c);
+
+    await GET(new NextRequest("http://localhost/api/registros-horas?fecha_fin=2026-05-31"));
+    expect(c.lte).toHaveBeenCalledWith("fecha", "2026-05-31");
+    expect(c.gte).not.toHaveBeenCalled();
+  });
+
+  it("filters by both fecha_inicio and fecha_fin", async () => {
+    const c = chain({ data: [], error: null });
+    mockFrom.mockReturnValue(c);
+
+    await GET(
+      new NextRequest(
+        "http://localhost/api/registros-horas?fecha_inicio=2026-05-01&fecha_fin=2026-05-15"
+      )
+    );
+    expect(c.gte).toHaveBeenCalledWith("fecha", "2026-05-01");
+    expect(c.lte).toHaveBeenCalledWith("fecha", "2026-05-15");
+  });
+
+  it("mes=2026-02 uses 28 as last day (non-leap year)", async () => {
+    const c = chain({ data: [], error: null });
+    mockFrom.mockReturnValue(c);
+
+    await GET(new NextRequest("http://localhost/api/registros-horas?mes=2026-02"));
+    expect(c.gte).toHaveBeenCalledWith("fecha", "2026-02-01");
+    expect(c.lte).toHaveBeenCalledWith("fecha", "2026-02-28");
+  });
+
+  it("ignores invalid mes format (falls through to date range path)", async () => {
+    const c = chain({ data: [], error: null });
+    mockFrom.mockReturnValue(c);
+
+    await GET(new NextRequest("http://localhost/api/registros-horas?mes=not-a-month"));
+    // invalid mes → no gte/lte applied at all (no fecha_inicio/fecha_fin either)
+    expect(c.gte).not.toHaveBeenCalled();
+    expect(c.lte).not.toHaveBeenCalled();
+  });
+
   it("returns 500 on DB error", async () => {
     mockFrom.mockReturnValue(chain({ data: null, error: { message: "DB error" } }));
 
@@ -154,6 +204,56 @@ describe("POST /api/registros-horas", () => {
     mockFrom.mockReturnValue(chain({ data: null, error: { message: "FK violation" } }));
 
     const res = await POST(postReq(validBody));
+    expect(res.status).toBe(400);
+  });
+
+  it("calculates 7.5h for 08:00–15:30 shift", async () => {
+    const insertChain = chain({
+      data: { ...mockRegistro, hora_salida: "15:30", horas_trabajadas: 7.5 },
+      error: null,
+    });
+    mockFrom.mockReturnValue(insertChain);
+
+    const res = await POST(postReq({ ...validBody, hora_salida: "15:30" }));
+    expect(res.status).toBe(201);
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ horas_trabajadas: 7.5 })
+    );
+  });
+
+  it("stores notas when provided", async () => {
+    const insertChain = chain({ data: { ...mockRegistro, notas: "Turno extra" }, error: null });
+    mockFrom.mockReturnValue(insertChain);
+
+    await POST(postReq({ ...validBody, notas: "Turno extra" }));
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ notas: "Turno extra" })
+    );
+  });
+
+  it("stores creado_por from auth user", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-42" } } });
+    const insertChain = chain({ data: mockRegistro, error: null });
+    mockFrom.mockReturnValue(insertChain);
+
+    await POST(postReq(validBody));
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ creado_por: "user-42" })
+    );
+  });
+
+  it("accepts today's date (not future)", async () => {
+    const insertChain = chain({ data: mockRegistro, error: null });
+    mockFrom.mockReturnValue(insertChain);
+
+    const res = await POST(postReq({ ...validBody, fecha: "2026-05-21" }));
+    expect(res.status).toBe(201);
+  });
+
+  it("returns 400 when hora_salida is missing", async () => {
+    const res = await POST(
+      postReq({ empleado_id: "emp-1", fecha: "2026-05-20", hora_entrada: "08:00" })
+    );
     expect(res.status).toBe(400);
   });
 

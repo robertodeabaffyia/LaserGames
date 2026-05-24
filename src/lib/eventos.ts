@@ -45,6 +45,18 @@ export function fechaEventoToISO(datetimeLocal: string): string {
   return new Date(datetimeLocal).toISOString();
 }
 
+/**
+ * Combine a date-only string ("YYYY-MM-DD") and a time-only string ("HH:MM")
+ * coming from separate <input type="date"> + <input type="time"> fields into
+ * a UTC ISO timestamp ready for the API.
+ *
+ * Falls back to midnight ("00:00") when hora is empty so the date input alone
+ * is enough to produce a valid timestamp.
+ */
+export function combineFechaHora(fecha: string, hora: string): string {
+  return fechaEventoToISO(`${fecha}T${hora || "00:00"}`);
+}
+
 export interface EventoSlot {
   id: string;
   fecha_evento: string; // ISO timestamptz

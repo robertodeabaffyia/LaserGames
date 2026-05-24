@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { unauthorizedResponse } from "@/lib/auth-helpers";
 import { validarHorario, calcularHorasTrabajadas } from "@/lib/registros-horas";
 import type { RegistroHorasUpdate } from "@/types/empleados";
 
@@ -8,6 +9,12 @@ type Params = { params: Promise<{ id: string }> };
 export async function PUT(request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
   let body: RegistroHorasUpdate;
   try {
@@ -55,7 +62,6 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   // Sync evento links when evento_ids is explicitly provided
   if (body.evento_ids !== undefined) {
-    // Delete existing links then re-insert
     await supabase.from("registros_horas_eventos").delete().eq("registro_id", id);
 
     if (body.evento_ids.length > 0) {
@@ -78,6 +84,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
 export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
   // Verify exists first
   const { data: registro, error: fetchError } = await supabase

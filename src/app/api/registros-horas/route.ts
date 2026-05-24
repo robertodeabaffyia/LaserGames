@@ -8,16 +8,16 @@
  * POST /api/registros-horas
  *   Creates a new registro. hora_salida is optional (partial entry allowed).
  *   Accepts evento_ids[] to link to registros_horas_eventos.
- *
- * Migration required (run once in Supabase):
- *   CREATE TABLE IF NOT EXISTS registros_horas_eventos (
- *     registro_id uuid NOT NULL REFERENCES registros_horas(id) ON DELETE CASCADE,
- *     evento_id   uuid NOT NULL REFERENCES eventos(id) ON DELETE CASCADE,
- *     PRIMARY KEY (registro_id, evento_id)
- *   );
+ *   Requires min supervisor role.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getUserRol,
+  hasMinRole,
+  unauthorizedResponse,
+  forbiddenResponse,
+} from "@/lib/auth-helpers";
 import {
   validarHorario,
   validarFechaNoFutura,
@@ -27,6 +27,13 @@ import type { RegistroHorasInsert } from "@/types/empleados";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
   const { searchParams } = new URL(request.url);
 
   const fecha = searchParams.get("fecha"); // YYYY-MM-DD — day dashboard mode
@@ -101,7 +108,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── List mode (existing behavior) ───────────────────────────────────────────
+  // ── List mode ───────────────────────────────────────────────────────────────
   let query = supabase
     .from("registros_horas")
     .select(`*, empleado:empleados(id, nombre, rol, tarifa_horaria)`)
@@ -127,7 +134,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+
+  // ── Auth + role guard (min supervisor) ────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) {
+    return forbiddenResponse("Acceso restringido a supervisores o administradores");
+  }
 
   let body: RegistroHorasInsert;
   try {
@@ -191,7 +208,6 @@ export async function POST(request: NextRequest) {
       .from("registros_horas_eventos")
       .insert(links);
     if (linkErr) {
-      // Non-fatal: registro was saved, just log the link failure
       console.error("[registros-horas POST] Failed to link eventos:", linkErr.message);
     }
   }

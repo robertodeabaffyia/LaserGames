@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getUserRol,
+  hasMinRole,
+  unauthorizedResponse,
+  forbiddenResponse,
+} from "@/lib/auth-helpers";
 import type { NotificacionTipo, NotificacionCanal } from "@/types/notificaciones";
 
 const VALID_TIPOS: NotificacionTipo[] = [
@@ -9,9 +15,20 @@ const VALID_TIPOS: NotificacionTipo[] = [
 ];
 const VALID_CANALES: NotificacionCanal[] = ["email", "whatsapp", "ambos"];
 
+const FORBIDDEN_MSG = "Acceso restringido a supervisores o administradores";
+
 /** GET — list all notification configs */
 export async function GET() {
   const supabase = await createClient();
+
+  // ── Auth + role guard ─────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) return forbiddenResponse(FORBIDDEN_MSG);
 
   const { data, error } = await supabase
     .from("notificaciones_config")
@@ -26,13 +43,14 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
+  // ── Auth + role guard ─────────────────────────────────────────────────────
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) return forbiddenResponse(FORBIDDEN_MSG);
 
   let body: {
     tipo?: string;

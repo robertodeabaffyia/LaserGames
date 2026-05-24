@@ -12,6 +12,15 @@ jest.mock("@/lib/supabase/server", () => ({
   ),
 }));
 
+// Mock auth-helpers so role checks don't touch the DB
+jest.mock("@/lib/auth-helpers", () => {
+  const actual = jest.requireActual("@/lib/auth-helpers");
+  return {
+    ...actual,
+    getUserRol: jest.fn().mockResolvedValue("supervisor"),
+  };
+});
+
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c: any = {};
@@ -41,11 +50,27 @@ function postReq(body: unknown) {
   });
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 // ── GET ────────────────────────────────────────────────────────────────────────
 
 describe("GET /api/bonos", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(new NextRequest("http://localhost/api/bonos"));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when user is general", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("general");
+    const res = await GET(new NextRequest("http://localhost/api/bonos"));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 200 with list", async () => {
     mockFrom.mockReturnValue(chain({ data: [mockBono], error: null }));
 
@@ -90,8 +115,15 @@ describe("POST /api/bonos", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns 403 when user is general", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("general");
+
+    const res = await POST(postReq(validBody));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 201 with created bono", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
     mockFrom.mockReturnValue(chain({ data: mockBono, error: null }));
 
     const res = await POST(postReq(validBody));
@@ -102,31 +134,24 @@ describe("POST /api/bonos", () => {
   });
 
   it("returns 400 when empleado_id is missing", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-
     const res = await POST(postReq({ mes: "2026-05", monto_bono: 500 }));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/empleado_id/);
   });
 
   it("returns 400 when mes has invalid format", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-
     const res = await POST(postReq({ ...validBody, mes: "2026/05" }));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/mes/);
   });
 
   it("returns 400 when monto_bono is 0", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-
     const res = await POST(postReq({ ...validBody, monto_bono: 0 }));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/monto_bono/);
   });
 
   it("includes descripcion when provided", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
     const c = chain({ data: mockBono, error: null });
     mockFrom.mockReturnValue(c);
 
@@ -137,7 +162,6 @@ describe("POST /api/bonos", () => {
   });
 
   it("returns 400 on DB error", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
     mockFrom.mockReturnValue(chain({ data: null, error: { message: "FK violation" } }));
 
     const res = await POST(postReq(validBody));
@@ -145,8 +169,6 @@ describe("POST /api/bonos", () => {
   });
 
   it("returns 400 on invalid JSON", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-
     const badReq = new NextRequest("http://localhost/api/bonos", {
       method: "POST",
       body: "bad",

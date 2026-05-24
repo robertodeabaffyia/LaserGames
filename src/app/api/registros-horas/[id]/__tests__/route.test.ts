@@ -5,8 +5,11 @@ import { NextRequest } from "next/server";
 import { PUT, DELETE } from "../route";
 
 const mockFrom = jest.fn();
+const mockGetUser = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
-  createClient: jest.fn(() => Promise.resolve({ from: mockFrom })),
+  createClient: jest.fn(() =>
+    Promise.resolve({ from: mockFrom, auth: { getUser: mockGetUser } })
+  ),
 }));
 
 function chain(result: unknown) {
@@ -36,11 +39,20 @@ function req(method: string, body?: unknown) {
   });
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 // ─── PUT ─────────────────────────────────────────────────────────────────────
 
 describe("PUT /api/registros-horas/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await PUT(req("PUT", { hora_salida: "17:00" }), params);
+    expect(res.status).toBe(401);
+  });
+
   function setupPut(fetchResult = { data: existingRegistro, error: null }, updateResult = { data: { ...existingRegistro, id: ID }, error: null }) {
     mockFrom
       .mockReturnValueOnce(chain(fetchResult))   // fetch existing
@@ -160,6 +172,12 @@ describe("PUT /api/registros-horas/[id]", () => {
 // ─── DELETE ──────────────────────────────────────────────────────────────────
 
 describe("DELETE /api/registros-horas/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await DELETE(req("DELETE"), params);
+    expect(res.status).toBe(401);
+  });
+
   it("returns 204 on successful delete", async () => {
     mockFrom
       .mockReturnValueOnce(chain({ data: { id: ID }, error: null }))

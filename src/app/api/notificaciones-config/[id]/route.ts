@@ -1,15 +1,31 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getUserRol,
+  hasMinRole,
+  unauthorizedResponse,
+  forbiddenResponse,
+} from "@/lib/auth-helpers";
 import type { NotificacionConfigUpdate, NotificacionCanal } from "@/types/notificaciones";
 
 type Params = { params: Promise<{ id: string }> };
 
 const VALID_CANALES: NotificacionCanal[] = ["email", "whatsapp", "ambos"];
+const FORBIDDEN_MSG = "Acceso restringido a supervisores o administradores";
 
 /** GET — fetch a single config */
 export async function GET(_request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
+
+  // ── Auth + role guard ─────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) return forbiddenResponse(FORBIDDEN_MSG);
 
   const { data, error } = await supabase
     .from("notificaciones_config")
@@ -29,13 +45,14 @@ export async function PUT(request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
 
+  // ── Auth + role guard ─────────────────────────────────────────────────────
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) return forbiddenResponse(FORBIDDEN_MSG);
 
   let body: NotificacionConfigUpdate;
   try {
@@ -80,13 +97,14 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
 
+  // ── Auth + role guard ─────────────────────────────────────────────────────
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) return forbiddenResponse(FORBIDDEN_MSG);
 
   const { error } = await supabase
     .from("notificaciones_config")

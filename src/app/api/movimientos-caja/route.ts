@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getUserRol,
+  hasMinRole,
+  unauthorizedResponse,
+  forbiddenResponse,
+} from "@/lib/auth-helpers";
 import type { MovimientoCajaInsert } from "@/types/caja";
 
 const VALID_TIPOS = ["ingreso", "egreso"] as const;
@@ -7,15 +13,27 @@ const VALID_CATEGORIAS = [
   "pago_evento", "salario", "bono", "compras", "servicios", "mantenimiento", "otros",
 ] as const;
 
+const FORBIDDEN_MSG = "Acceso restringido a supervisores o administradores";
+
 /** GET — list movimientos, filterable by mes/dia/desde-hasta/tipo/categoria */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
+
+  // ── Auth + role guard ─────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) return forbiddenResponse(FORBIDDEN_MSG);
+
   const { searchParams } = new URL(request.url);
 
-  const mes       = searchParams.get("mes");       // YYYY-MM
-  const dia       = searchParams.get("dia");       // YYYY-MM-DD
-  const desde     = searchParams.get("desde");     // YYYY-MM-DD
-  const hasta     = searchParams.get("hasta");     // YYYY-MM-DD
+  const mes       = searchParams.get("mes");
+  const dia       = searchParams.get("dia");
+  const desde     = searchParams.get("desde");
+  const hasta     = searchParams.get("hasta");
   const tipo      = searchParams.get("tipo");
   const categoria = searchParams.get("categoria");
 
@@ -56,13 +74,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
+  // ── Auth + role guard ─────────────────────────────────────────────────────
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) return forbiddenResponse(FORBIDDEN_MSG);
 
   let body: MovimientoCajaInsert;
   try {

@@ -5,9 +5,21 @@ import { NextRequest } from "next/server";
 import { GET, PUT, DELETE } from "../route";
 
 const mockFrom = jest.fn();
+const mockGetUser = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
-  createClient: jest.fn(() => Promise.resolve({ from: mockFrom })),
+  createClient: jest.fn(() =>
+    Promise.resolve({ from: mockFrom, auth: { getUser: mockGetUser } })
+  ),
 }));
+
+// Mock auth-helpers so role checks don't touch the DB
+jest.mock("@/lib/auth-helpers", () => {
+  const actual = jest.requireActual("@/lib/auth-helpers");
+  return {
+    ...actual,
+    getUserRol: jest.fn().mockResolvedValue("admin"),
+  };
+});
 
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,9 +52,18 @@ const mockEmpleado = {
   registros_horas: [],
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 describe("GET /api/empleados/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(req("GET"), params);
+    expect(res.status).toBe(401);
+  });
+
   it("returns 200 with empleado and registros_horas", async () => {
     mockFrom.mockReturnValue(chain({ data: mockEmpleado, error: null }));
 
@@ -71,7 +92,13 @@ describe("GET /api/empleados/[id]", () => {
 });
 
 describe("PUT /api/empleados/[id]", () => {
-  it("returns 200 with updated empleado", async () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await PUT(req("PUT", { nombre: "X" }), params);
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 200 with updated empleado (no rol field)", async () => {
     const updated = { ...mockEmpleado, nombre: "Carlos M." };
     mockFrom.mockReturnValue(chain({ data: updated, error: null }));
 
@@ -84,6 +111,22 @@ describe("PUT /api/empleados/[id]", () => {
     const res = await PUT(req("PUT", { rol: "becario" }), params);
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/rol must be/);
+  });
+
+  it("allows admin to change rol", async () => {
+    mockFrom.mockReturnValue(chain({ data: { ...mockEmpleado, rol: "supervisor" }, error: null }));
+
+    const res = await PUT(req("PUT", { rol: "supervisor" }), params);
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 403 when non-admin tries to change rol", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("supervisor");
+
+    const res = await PUT(req("PUT", { rol: "general" }), params);
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/administrador/i);
   });
 
   it("returns 409 when DNI conflict on update", async () => {
@@ -116,13 +159,18 @@ describe("PUT /api/empleados/[id]", () => {
 });
 
 describe("DELETE /api/empleados/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await DELETE(req("DELETE"), params);
+    expect(res.status).toBe(401);
+  });
+
   it("returns 204 on successful soft-delete", async () => {
     const updateChain = chain({ data: null, error: null });
     mockFrom.mockReturnValue(updateChain);
 
     const res = await DELETE(req("DELETE"), params);
     expect(res.status).toBe(204);
-    // Soft delete: update es_activo=false
     expect(updateChain.update).toHaveBeenCalledWith({ es_activo: false });
   });
 

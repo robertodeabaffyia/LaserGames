@@ -8,11 +8,21 @@ jest.useFakeTimers();
 jest.setSystemTime(new Date("2026-05-21T12:00:00Z"));
 
 const mockFrom = jest.fn();
+const mockGetUser = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn(() =>
-    Promise.resolve({ from: mockFrom })
+    Promise.resolve({ from: mockFrom, auth: { getUser: mockGetUser } })
   ),
 }));
+
+// Mock auth-helpers so role checks don't touch the DB
+jest.mock("@/lib/auth-helpers", () => {
+  const actual = jest.requireActual("@/lib/auth-helpers");
+  return {
+    ...actual,
+    getUserRol: jest.fn().mockResolvedValue("admin"),
+  };
+});
 
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,7 +46,27 @@ function params(tipo: string) {
   return { params: Promise.resolve({ tipo }) };
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
+
+// ── auth guard ─────────────────────────────────────────────────────────────────
+
+describe("GET /api/reportes — auth & role", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(req("kpis"), params("kpis"));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when user is not admin", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("supervisor");
+    const res = await GET(req("kpis"), params("kpis"));
+    expect(res.status).toBe(403);
+  });
+});
 
 // ── invalid tipo ───────────────────────────────────────────────────────────────
 

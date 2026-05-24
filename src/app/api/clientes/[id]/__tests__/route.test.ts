@@ -5,8 +5,11 @@ import { NextRequest } from "next/server";
 import { GET, PUT, DELETE } from "../route";
 
 const mockFrom = jest.fn();
+const mockGetUser = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
-  createClient: jest.fn(() => Promise.resolve({ from: mockFrom })),
+  createClient: jest.fn(() =>
+    Promise.resolve({ from: mockFrom, auth: { getUser: mockGetUser } })
+  ),
 }));
 
 function chain(result: unknown) {
@@ -37,11 +40,20 @@ const mockPerfil = {
   eventos: [],
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 // ── GET /api/clientes/[id] ────────────────────────────────────────────────────
 
 describe("GET /api/clientes/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(req("GET"), params);
+    expect(res.status).toBe(401);
+  });
+
   it("returns 200 with full profile", async () => {
     mockFrom.mockReturnValue(chain({ data: mockPerfil, error: null }));
 
@@ -68,6 +80,12 @@ describe("GET /api/clientes/[id]", () => {
 // ── PUT /api/clientes/[id] ────────────────────────────────────────────────────
 
 describe("PUT /api/clientes/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await PUT(req("PUT", { nombre: "X" }), params);
+    expect(res.status).toBe(401);
+  });
+
   it("returns 200 with updated cliente", async () => {
     const updated = { ...mockPerfil, nombre: "Ana López" };
     mockFrom.mockReturnValue(chain({ data: updated, error: null }));
@@ -101,8 +119,6 @@ describe("PUT /api/clientes/[id]", () => {
     expect(res.status).toBe(400);
   });
 
-  // ── email validation ──
-
   it("returns 400 when email format is invalid", async () => {
     const res = await PUT(req("PUT", { email: "bad-email" }), params);
     expect(res.status).toBe(400);
@@ -123,8 +139,6 @@ describe("PUT /api/clientes/[id]", () => {
     expect(res.status).toBe(200);
   });
 
-  // ── phone validation ──
-
   it("returns 400 when phone format is invalid on PUT", async () => {
     const res = await PUT(req("PUT", { telefono: "abc" }), params);
     expect(res.status).toBe(400);
@@ -142,6 +156,12 @@ describe("PUT /api/clientes/[id]", () => {
 // ── DELETE /api/clientes/[id] ─────────────────────────────────────────────────
 
 describe("DELETE /api/clientes/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await DELETE(req("DELETE"), params);
+    expect(res.status).toBe(401);
+  });
+
   it("returns 204 on success", async () => {
     mockFrom.mockReturnValue(chain({ data: null, error: null }));
 

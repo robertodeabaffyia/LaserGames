@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { calcularPrecioTotal, hayConflicto } from "@/lib/eventos";
+import {
+  getUserRol,
+  hasMinRole,
+  unauthorizedResponse,
+  forbiddenResponse,
+} from "@/lib/auth-helpers";
 import { ADMIN_ONLY_ESTADOS, type EventoUpdate } from "@/types/eventos";
 
 type Params = { params: Promise<{ id: string }> };
@@ -8,6 +14,12 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
   const { data, error } = await supabase
     .from("eventos")
@@ -32,6 +44,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
 
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
   let body: EventoUpdate;
   try {
     body = await request.json();
@@ -39,27 +57,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Admin-only estado guard
+  // ── Admin-only estado guard ───────────────────────────────────────────────
   if (body.estado && ADMIN_ONLY_ESTADOS.includes(body.estado)) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: usuario } = await supabase
-      .from("usuarios")
-      .select("rol")
-      .eq("id", user.id)
-      .single();
-
-    if (!usuario || usuario.rol !== "admin") {
-      return NextResponse.json(
-        { error: "Solo administradores pueden cambiar a este estado" },
-        { status: 403 }
-      );
+    const rol = await getUserRol(supabase, user.id);
+    if (!hasMinRole(rol, "admin")) {
+      return forbiddenResponse("Solo administradores pueden cambiar a este estado");
     }
   }
 
@@ -86,7 +88,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
       hayConflicto(
         { fecha_evento: body.fecha_evento, duracion_horas: current.duracion_horas, duracion_minutos: current.duracion_minutos },
         existingEventos ?? [],
-        id // exclude self
+        id
       )
     ) {
       return NextResponse.json(
@@ -142,6 +144,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
 export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
   const { error } = await supabase.from("eventos").delete().eq("id", id);
 

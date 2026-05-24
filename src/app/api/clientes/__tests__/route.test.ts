@@ -5,14 +5,17 @@ import { NextRequest } from "next/server";
 import { GET, POST } from "../route";
 
 const mockFrom = jest.fn();
+const mockGetUser = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
-  createClient: jest.fn(() => Promise.resolve({ from: mockFrom })),
+  createClient: jest.fn(() =>
+    Promise.resolve({ from: mockFrom, auth: { getUser: mockGetUser } })
+  ),
 }));
 
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c: any = {};
-  for (const m of ["select", "insert", "update", "delete", "eq", "or", "in", "order", "single", "limit", "filter"]) {
+  for (const m of ["select", "insert", "update", "delete", "eq", "or", "order", "single", "limit", "filter"]) {
     c[m] = jest.fn().mockReturnValue(c);
   }
   c.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
@@ -30,11 +33,20 @@ const mockCliente = {
   hijos: [],
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 // ── GET /api/clientes ─────────────────────────────────────────────────────────
 
 describe("GET /api/clientes", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(new NextRequest("http://localhost/api/clientes"));
+    expect(res.status).toBe(401);
+  });
+
   it("returns 200 with list (no search)", async () => {
     mockFrom.mockReturnValue(chain({ data: [mockCliente], error: null }));
 
@@ -54,6 +66,19 @@ describe("GET /api/clientes", () => {
 
     expect(c.or).toHaveBeenCalledWith(
       "nombre.ilike.%ana%,telefono.ilike.%ana%,email.ilike.%ana%"
+    );
+  });
+
+  it("escapes ILIKE metacharacters in q param", async () => {
+    const c = chain({ data: [], error: null });
+    mockFrom.mockReturnValue(c);
+
+    const req = new NextRequest("http://localhost/api/clientes?q=50%25");
+    await GET(req);
+
+    // URL-decoded "50%" → escaped to "50\%"
+    expect(c.or).toHaveBeenCalledWith(
+      "nombre.ilike.%50\\%%,telefono.ilike.%50\\%%,email.ilike.%50\\%%"
     );
   });
 
@@ -108,6 +133,12 @@ describe("POST /api/clientes", () => {
     });
   }
 
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await POST(req({ nombre: "Ana" }));
+    expect(res.status).toBe(401);
+  });
+
   it("returns 201 with created cliente", async () => {
     mockFrom.mockReturnValue(chain({ data: mockCliente, error: null }));
 
@@ -139,8 +170,6 @@ describe("POST /api/clientes", () => {
     expect(res.status).toBe(400);
   });
 
-  // ── email validation ──
-
   it("returns 400 when email format is invalid", async () => {
     const res = await POST(req({ nombre: "Test", email: "no-arroba" }));
     expect(res.status).toBe(400);
@@ -160,8 +189,6 @@ describe("POST /api/clientes", () => {
     const res = await POST(req({ nombre: "Test" }));
     expect(res.status).toBe(201);
   });
-
-  // ── phone validation ──
 
   it("returns 400 when phone format is invalid (too short)", async () => {
     const res = await POST(req({ nombre: "Test", telefono: "123" }));

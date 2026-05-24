@@ -50,11 +50,20 @@ function postReq(body: unknown) {
   });
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 // ── GET ────────────────────────────────────────────────────────────────────────
 
 describe("GET /api/pagos", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(new NextRequest("http://localhost/api/pagos"));
+    expect(res.status).toBe(401);
+  });
+
   it("returns list of pagos", async () => {
     mockFrom.mockReturnValue(chain({ data: [mockPago], error: null }));
 

@@ -5,8 +5,11 @@ import { NextRequest } from "next/server";
 import { GET, POST } from "../route";
 
 const mockFrom = jest.fn();
+const mockGetUser = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
-  createClient: jest.fn(() => Promise.resolve({ from: mockFrom })),
+  createClient: jest.fn(() =>
+    Promise.resolve({ from: mockFrom, auth: { getUser: mockGetUser } })
+  ),
 }));
 
 function chain(result: unknown) {
@@ -54,9 +57,18 @@ function req(method: string, url: string, body?: unknown) {
   });
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 describe("GET /api/eventos", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(req("GET", "http://localhost/api/eventos"));
+    expect(res.status).toBe(401);
+  });
+
   it("returns list of events", async () => {
     mockFrom.mockReturnValue(chain({ data: [mockEvento], error: null }));
 
@@ -109,6 +121,12 @@ describe("POST /api/eventos", () => {
     fecha_evento: "2026-06-15T14:00:00Z",
     nombre_festejado: "Mateo",
   };
+
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await POST(req("POST", "http://localhost/api/eventos", validBody));
+    expect(res.status).toBe(401);
+  });
 
   it("returns 201 with created evento and correct price_total", async () => {
     mockFrom

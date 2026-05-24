@@ -12,6 +12,15 @@ jest.mock("@/lib/supabase/server", () => ({
   ),
 }));
 
+// Mock auth-helpers so role checks don't touch the DB
+jest.mock("@/lib/auth-helpers", () => {
+  const actual = jest.requireActual("@/lib/auth-helpers");
+  return {
+    ...actual,
+    getUserRol: jest.fn().mockResolvedValue("supervisor"),
+  };
+});
+
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c: any = {};
@@ -46,9 +55,25 @@ function req(method: string, body?: unknown) {
   });
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 describe("GET /api/notificaciones-config/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(req("GET"), params);
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when user is general", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("general");
+    const res = await GET(req("GET"), params);
+    expect(res.status).toBe(403);
+  });
+
   it("returns 200 with config", async () => {
     mockFrom.mockReturnValue(chain({ data: mockConfig, error: null }));
     const res = await GET(req("GET"), params);
@@ -68,6 +93,13 @@ describe("PUT /api/notificaciones-config/[id]", () => {
     mockGetUser.mockResolvedValue({ data: { user: null } });
     const res = await PUT(req("PUT", { habilitada: false }), params);
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when user is general", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("general");
+    const res = await PUT(req("PUT", { habilitada: false }), params);
+    expect(res.status).toBe(403);
   });
 
   it("returns 200 with updated config", async () => {
@@ -113,6 +145,13 @@ describe("DELETE /api/notificaciones-config/[id]", () => {
     mockGetUser.mockResolvedValue({ data: { user: null } });
     const res = await DELETE(req("DELETE"), params);
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when user is general", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("general");
+    const res = await DELETE(req("DELETE"), params);
+    expect(res.status).toBe(403);
   });
 
   it("returns 204 on success", async () => {

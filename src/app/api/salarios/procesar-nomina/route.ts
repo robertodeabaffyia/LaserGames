@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getUserRol,
+  hasMinRole,
+  unauthorizedResponse,
+  forbiddenResponse,
+} from "@/lib/auth-helpers";
 import type { NominaResultado } from "@/types/caja";
 
 /** POST — process payroll for a given month.
@@ -10,16 +16,21 @@ import type { NominaResultado } from "@/types/caja";
  *    - Creates egreso movimiento_caja (categoria: "salario") for salary
  *    - Creates egreso movimiento_caja (categoria: "bono") for bonos (if any)
  *  Returns array of NominaResultado.
+ *
+ *  Authorization: min supervisor required.
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
+  // ── Auth + role guard ─────────────────────────────────────────────────────
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) {
+    return forbiddenResponse("Acceso restringido a supervisores o administradores");
   }
 
   let body: { mes?: string };
@@ -43,7 +54,6 @@ export async function POST(request: NextRequest) {
   const lastDay = new Date(year, month, 0).getDate();
   const fechaFin = `${mes}-${String(lastDay).padStart(2, "0")}`;
 
-  // Fetch all active employees with a tarifa_horaria
   const { data: empleados, error: empError } = await supabase
     .from("empleados")
     .select("id, nombre, tarifa_horaria")
@@ -58,7 +68,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ procesados: [], mensaje: "No hay empleados activos con tarifa" });
   }
 
-  // Fetch all registros_horas for the month in one query
   const { data: registros, error: regError } = await supabase
     .from("registros_horas")
     .select("empleado_id, horas_trabajadas")
@@ -69,7 +78,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: regError.message }, { status: 500 });
   }
 
-  // Fetch all bonos for the month in one query
   const { data: bonos, error: bonosError } = await supabase
     .from("bonos_empleados")
     .select("empleado_id, monto_bono")
@@ -79,7 +87,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: bonosError.message }, { status: 500 });
   }
 
-  // Build lookup maps
   const horasMap = new Map<string, number>();
   for (const r of registros ?? []) {
     horasMap.set(

@@ -1,5 +1,19 @@
+/**
+ * GET /api/reportes/[tipo]
+ *
+ * Authentication: required (401 if no session).
+ * Authorization:  admin only (403 for supervisor / general).
+ *
+ * Supported tipos: kpis | resumen | eventos | clientes | empleados | movimientos
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getUserRol,
+  hasMinRole,
+  unauthorizedResponse,
+  forbiddenResponse,
+} from "@/lib/auth-helpers";
 import type {
   KPIs,
   ReporteResumen,
@@ -157,7 +171,6 @@ async function handleEventos(supabase: any, desde: string, hasta: string): Promi
   let total_ingresos = 0;
 
   for (const r of rows) {
-    // paquete stats
     const pid = r.paquete_id;
     const pnombre = r.paquete?.nombre ?? "Sin paquete";
     if (!byPaquete.has(pid)) byPaquete.set(pid, { paquete_id: pid, paquete_nombre: pnombre, count: 0, total_ingresos: 0 });
@@ -165,7 +178,6 @@ async function handleEventos(supabase: any, desde: string, hasta: string): Promi
     ps.count++;
     if (r.estado === "completado") { ps.total_ingresos += r.precio_total; total_ingresos += r.precio_total; }
 
-    // estado stats
     if (!byEstado.has(r.estado)) byEstado.set(r.estado, { estado: r.estado, count: 0 });
     byEstado.get(r.estado)!.count++;
   }
@@ -242,8 +254,7 @@ async function handleEmpleados(supabase: any, desde: string, hasta: string): Pro
 
   if (regErr) throw new Error(regErr.message);
 
-  // mes range for bonos: first/last YYYY-MM in the desde/hasta span
-  const mesDesdeParts = desde.slice(0, 7); // YYYY-MM
+  const mesDesdeParts = desde.slice(0, 7);
   const mesHastaParts = hasta.slice(0, 7);
 
   const { data: bonos } = await supabase
@@ -335,6 +346,19 @@ export async function GET(request: NextRequest, { params }: Params) {
   const sp = request.nextUrl.searchParams;
   const supabase = await createClient();
 
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
+  // ── Admin-only: financial reports contain sensitive business data ─────────
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "admin")) {
+    return forbiddenResponse("Solo administradores pueden acceder a los reportes");
+  }
+
+  // ── Tipo validation ───────────────────────────────────────────────────────
   const VALID_TIPOS = ["kpis", "resumen", "eventos", "clientes", "empleados", "movimientos"];
   if (!VALID_TIPOS.includes(tipo)) {
     return NextResponse.json({ error: `Tipo inválido: ${tipo}` }, { status: 400 });

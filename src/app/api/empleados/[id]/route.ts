@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getUserRol,
+  hasMinRole,
+  unauthorizedResponse,
+  forbiddenResponse,
+} from "@/lib/auth-helpers";
 import type { EmpleadoUpdate } from "@/types/empleados";
 
 type Params = { params: Promise<{ id: string }> };
@@ -7,6 +13,12 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
   const { data, error } = await supabase
     .from("empleados")
@@ -30,6 +42,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
 
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
   let body: EmpleadoUpdate;
   try {
     body = await request.json();
@@ -37,12 +55,21 @@ export async function PUT(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (body.rol) {
+  // ── Rol validation ────────────────────────────────────────────────────────
+  if (body.rol !== undefined) {
     const rolesValidos = ["administrador", "supervisor", "general"];
     if (!rolesValidos.includes(body.rol)) {
       return NextResponse.json(
         { error: `rol must be one of: ${rolesValidos.join(", ")}` },
         { status: 400 }
+      );
+    }
+
+    // ── Admin-only: only admins can change an employee's rol ─────────────
+    const userRol = await getUserRol(supabase, user.id);
+    if (!hasMinRole(userRol, "admin")) {
+      return forbiddenResponse(
+        "Solo administradores pueden modificar el rol de un empleado"
       );
     }
   }
@@ -75,6 +102,12 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
 
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
   const { error } = await supabase
     .from("empleados")
     .update({ es_activo: false })
@@ -83,4 +116,3 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return new NextResponse(null, { status: 204 });
 }
-

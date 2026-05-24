@@ -5,8 +5,11 @@ import { NextRequest } from "next/server";
 import { GET, POST } from "../route";
 
 const mockFrom = jest.fn();
+const mockGetUser = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
-  createClient: jest.fn(() => Promise.resolve({ from: mockFrom })),
+  createClient: jest.fn(() =>
+    Promise.resolve({ from: mockFrom, auth: { getUser: mockGetUser } })
+  ),
 }));
 
 function chain(result: unknown) {
@@ -43,9 +46,18 @@ function req(method: string, url: string, body?: unknown) {
   });
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 describe("GET /api/empleados", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(req("GET", "http://localhost/api/empleados"));
+    expect(res.status).toBe(401);
+  });
+
   it("returns list of empleados", async () => {
     mockFrom.mockReturnValue(chain({ data: [mockEmpleado], error: null }));
 
@@ -56,13 +68,24 @@ describe("GET /api/empleados", () => {
     expect(body[0].nombre).toBe("Carlos López");
   });
 
-  it("passes search query to or() filter", async () => {
+  it("passes search query to or() filter with escaped metacharacters", async () => {
     const c = chain({ data: [], error: null });
     mockFrom.mockReturnValue(c);
 
     await GET(req("GET", "http://localhost/api/empleados?q=Carlos"));
     expect(c.or).toHaveBeenCalledWith(
       "nombre.ilike.%Carlos%,telefono.ilike.%Carlos%,dni.ilike.%Carlos%"
+    );
+  });
+
+  it("escapes ILIKE metacharacters in search query", async () => {
+    const c = chain({ data: [], error: null });
+    mockFrom.mockReturnValue(c);
+
+    // URL-decoded "50%off" → escaped to "50\%off"
+    await GET(req("GET", "http://localhost/api/empleados?q=50%25off"));
+    expect(c.or).toHaveBeenCalledWith(
+      "nombre.ilike.%50\\%off%,telefono.ilike.%50\\%off%,dni.ilike.%50\\%off%"
     );
   });
 
@@ -92,6 +115,12 @@ describe("GET /api/empleados", () => {
 
 describe("POST /api/empleados", () => {
   const validBody = { nombre: "Carlos López", rol: "general" };
+
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await POST(req("POST", "http://localhost/api/empleados", validBody));
+    expect(res.status).toBe(401);
+  });
 
   it("returns 201 with created empleado", async () => {
     mockFrom.mockReturnValue(chain({ data: mockEmpleado, error: null }));

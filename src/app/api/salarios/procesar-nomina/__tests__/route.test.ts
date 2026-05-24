@@ -15,6 +15,15 @@ jest.mock("@/lib/supabase/server", () => ({
   ),
 }));
 
+// Mock auth-helpers so role checks don't touch the DB
+jest.mock("@/lib/auth-helpers", () => {
+  const actual = jest.requireActual("@/lib/auth-helpers");
+  return {
+    ...actual,
+    getUserRol: jest.fn().mockResolvedValue("supervisor"),
+  };
+});
+
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c: any = {};
@@ -52,7 +61,10 @@ function postReq(body: unknown) {
   });
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 describe("POST /api/salarios/procesar-nomina", () => {
   it("returns 401 when unauthenticated", async () => {
@@ -60,6 +72,13 @@ describe("POST /api/salarios/procesar-nomina", () => {
 
     const res = await POST(postReq({ mes: "2026-05" }));
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when user is general", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("general");
+    const res = await POST(postReq({ mes: "2026-05" }));
+    expect(res.status).toBe(403);
   });
 
   it("returns 400 when mes is missing", async () => {

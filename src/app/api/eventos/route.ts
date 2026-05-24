@@ -1,10 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { calcularPrecioTotal, hayConflicto } from "@/lib/eventos";
+import { unauthorizedResponse } from "@/lib/auth-helpers";
 import type { EventoInsert } from "@/types/eventos";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
   const { searchParams } = new URL(request.url);
   const estado = searchParams.get("estado");
   const cliente_id = searchParams.get("cliente_id");
@@ -34,6 +42,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
   let body: EventoInsert;
   try {
     body = await request.json();
@@ -50,7 +64,6 @@ export async function POST(request: NextRequest) {
   if (!body.nombre_festejado)
     return NextResponse.json({ error: "nombre_festejado is required" }, { status: 400 });
 
-  // Fetch paquete for base price, duration and included counts
   const { data: paquete, error: paqueteError } = await supabase
     .from("paquetes")
     .select("precio, duracion_horas, duracion_minutos, cantidad_ninos_incluidos, cantidad_adultos_incluidos")
@@ -61,7 +74,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Paquete not found" }, { status: 404 });
   }
 
-  // Fetch active events for overlap detection (exclude cancelled)
   const { data: existingEventos } = await supabase
     .from("eventos")
     .select("id, fecha_evento, duracion_horas, duracion_minutos")

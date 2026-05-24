@@ -1,10 +1,23 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { validarEmail, validarTelefono } from "@/lib/validaciones";
+import { unauthorizedResponse } from "@/lib/auth-helpers";
 import type { ClienteInsert } from "@/types/clientes";
+
+/** Escapes ILIKE metacharacters to prevent pattern amplification. */
+function escapeLike(value: string): string {
+  return value.replace(/[%_\\]/g, "\\$&");
+}
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
   const colegio = searchParams.get("colegio");
@@ -17,8 +30,9 @@ export async function GET(request: NextRequest) {
     .order("nombre", { ascending: true });
 
   if (q) {
+    const escaped = escapeLike(q);
     query = query.or(
-      `nombre.ilike.%${q}%,telefono.ilike.%${q}%,email.ilike.%${q}%`
+      `nombre.ilike.%${escaped}%,telefono.ilike.%${escaped}%,email.ilike.%${escaped}%`
     );
   }
 
@@ -38,6 +52,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
   let body: ClienteInsert;
   try {

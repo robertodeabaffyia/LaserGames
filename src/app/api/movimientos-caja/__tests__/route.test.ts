@@ -12,6 +12,15 @@ jest.mock("@/lib/supabase/server", () => ({
   ),
 }));
 
+// Mock auth-helpers so role checks don't touch the DB
+jest.mock("@/lib/auth-helpers", () => {
+  const actual = jest.requireActual("@/lib/auth-helpers");
+  return {
+    ...actual,
+    getUserRol: jest.fn().mockResolvedValue("supervisor"),
+  };
+});
+
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c: any = {};
@@ -49,11 +58,27 @@ function postReq(body: unknown) {
   });
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 // ── GET ────────────────────────────────────────────────────────────────────────
 
 describe("GET /api/movimientos-caja", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(new NextRequest("http://localhost/api/movimientos-caja"));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when user is general (insufficient role)", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("general");
+    const res = await GET(new NextRequest("http://localhost/api/movimientos-caja"));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 200 with list (no filters)", async () => {
     mockFrom.mockReturnValue(chain({ data: [mockMovimiento], error: null }));
 
@@ -129,8 +154,15 @@ describe("POST /api/movimientos-caja", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns 403 when user is general", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("general");
+
+    const res = await POST(postReq(validBody));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 201 with created movimiento", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
     mockFrom.mockReturnValue(chain({ data: mockMovimiento, error: null }));
 
     const res = await POST(postReq(validBody));
@@ -141,39 +173,30 @@ describe("POST /api/movimientos-caja", () => {
   });
 
   it("returns 400 when tipo is invalid", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-
     const res = await POST(postReq({ ...validBody, tipo: "otro" }));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/tipo/);
   });
 
   it("returns 400 when categoria is invalid", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-
     const res = await POST(postReq({ ...validBody, categoria: "invalida" }));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/categoria/);
   });
 
   it("returns 400 when descripcion is missing", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-
     const res = await POST(postReq({ ...validBody, descripcion: "" }));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/descripcion/);
   });
 
   it("returns 400 when monto is 0", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-
     const res = await POST(postReq({ ...validBody, monto: 0 }));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/monto/);
   });
 
   it("returns 201 with es_repetible and frecuencia_repeticion", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
     const c = chain({ data: { ...mockMovimiento, es_repetible: true, frecuencia_repeticion: "mensual" }, error: null });
     mockFrom.mockReturnValue(c);
 
@@ -185,7 +208,6 @@ describe("POST /api/movimientos-caja", () => {
   });
 
   it("returns 400 on DB error", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
     mockFrom.mockReturnValue(chain({ data: null, error: { message: "Constraint violation" } }));
 
     const res = await POST(postReq(validBody));
@@ -193,8 +215,6 @@ describe("POST /api/movimientos-caja", () => {
   });
 
   it("returns 400 on invalid JSON", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-
     const badReq = new NextRequest("http://localhost/api/movimientos-caja", {
       method: "POST",
       body: "bad",

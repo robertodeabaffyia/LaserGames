@@ -1,9 +1,22 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { unauthorizedResponse } from "@/lib/auth-helpers";
 import type { EmpleadoInsert } from "@/types/empleados";
+
+/** Escapes ILIKE metacharacters to prevent ReDoS-style pattern amplification. */
+function escapeLike(value: string): string {
+  return value.replace(/[%_\\]/g, "\\$&");
+}
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
   const activo = searchParams.get("activo");
@@ -14,8 +27,9 @@ export async function GET(request: NextRequest) {
     .order("nombre", { ascending: true });
 
   if (q) {
+    const escaped = escapeLike(q);
     query = query.or(
-      `nombre.ilike.%${q}%,telefono.ilike.%${q}%,dni.ilike.%${q}%`
+      `nombre.ilike.%${escaped}%,telefono.ilike.%${escaped}%,dni.ilike.%${escaped}%`
     );
   }
 
@@ -31,6 +45,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
   let body: EmpleadoInsert;
   try {
@@ -60,7 +80,6 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    // Unique violation on DNI
     if (error.code === "23505") {
       return NextResponse.json(
         { error: "Ya existe un empleado con ese DNI" },

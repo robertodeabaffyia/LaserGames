@@ -62,9 +62,18 @@ const mockEvento = {
   },
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 describe("GET /api/eventos/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(req("GET"), params);
+    expect(res.status).toBe(401);
+  });
+
   it("returns 200 with evento and relations", async () => {
     mockFrom.mockReturnValue(chain({ data: mockEvento, error: null }));
 
@@ -94,6 +103,12 @@ describe("GET /api/eventos/[id]", () => {
 });
 
 describe("PUT /api/eventos/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await PUT(req("PUT", { nombre_festejado: "Test" }), params);
+    expect(res.status).toBe(401);
+  });
+
   it("returns 200 with updated evento", async () => {
     mockFrom
       .mockReturnValueOnce(chain({ data: mockEvento, error: null })) // fetch current
@@ -210,8 +225,6 @@ describe("PUT /api/eventos/[id]", () => {
 
     const res = await PUT(req("PUT", { estado: "confirmado" }), params);
     expect(res.status).toBe(200);
-    // auth.getUser should NOT have been called for non-admin-only estados
-    expect(mockGetUser).not.toHaveBeenCalled();
   });
 
   it("returns 400 on invalid JSON", async () => {
@@ -236,6 +249,12 @@ describe("PUT /api/eventos/[id]", () => {
 });
 
 describe("DELETE /api/eventos/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await DELETE(req("DELETE"), params);
+    expect(res.status).toBe(401);
+  });
+
   it("returns 204 on success", async () => {
     mockFrom.mockReturnValue(chain({ data: null, error: null }));
 

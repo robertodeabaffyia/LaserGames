@@ -1,10 +1,29 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getUserRol,
+  hasMinRole,
+  unauthorizedResponse,
+  forbiddenResponse,
+} from "@/lib/auth-helpers";
 import type { BonoEmpleadoInsert } from "@/types/caja";
+
+const FORBIDDEN_MSG =
+  "Acceso restringido a supervisores o administradores";
 
 /** GET — list bonos, optionally filtered by empleado_id or mes */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
+
+  // ── Auth + role guard ─────────────────────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
+
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) return forbiddenResponse(FORBIDDEN_MSG);
+
   const { searchParams } = new URL(request.url);
   const empleado_id = searchParams.get("empleado_id");
   const mes         = searchParams.get("mes");
@@ -27,13 +46,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
+  // ── Auth + role guard ─────────────────────────────────────────────────────
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return unauthorizedResponse();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) return forbiddenResponse(FORBIDDEN_MSG);
 
   let body: BonoEmpleadoInsert;
   try {

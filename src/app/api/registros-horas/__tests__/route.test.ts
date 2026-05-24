@@ -12,6 +12,15 @@ jest.mock("@/lib/supabase/server", () => ({
   ),
 }));
 
+// Mock auth-helpers so role checks don't touch the DB
+jest.mock("@/lib/auth-helpers", () => {
+  const actual = jest.requireActual("@/lib/auth-helpers");
+  return {
+    ...actual,
+    getUserRol: jest.fn().mockResolvedValue("supervisor"),
+  };
+});
+
 // Builder for a chainable Supabase query mock
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,11 +69,20 @@ beforeAll(() => {
   jest.setSystemTime(new Date("2026-05-21T12:00:00Z"));
 });
 afterAll(() => jest.useRealTimers());
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+});
 
 // ─── GET — list mode ──────────────────────────────────────────────────────────
 
 describe("GET /api/registros-horas (list mode)", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await GET(getReq("http://localhost/api/registros-horas"));
+    expect(res.status).toBe(401);
+  });
+
   it("returns list of registros", async () => {
     mockFrom.mockReturnValue(chain({ data: [mockRegistro], error: null }));
 
@@ -229,8 +247,17 @@ describe("POST /api/registros-horas", () => {
     hora_salida: "16:00",
   };
 
-  beforeEach(() => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+  it("returns 401 when unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const res = await POST(postReq(validBody));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when user is general", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("general");
+    const res = await POST(postReq(validBody));
+    expect(res.status).toBe(403);
   });
 
   it("returns 201 with created registro and calculated horas_trabajadas", async () => {

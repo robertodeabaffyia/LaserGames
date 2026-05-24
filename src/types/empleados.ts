@@ -60,10 +60,33 @@ export interface ResumenHorasEmpleado {
 export type EmpleadoInsert = Omit<Empleado, "id" | "created_at" | "updated_at">;
 export type EmpleadoUpdate = Partial<EmpleadoInsert>;
 
+/** Used for creating or updating a registro (hora_salida optional for partial entry). */
 export type RegistroHorasInsert = {
   empleado_id: string;
   fecha: string;
   hora_entrada: string;
-  hora_salida: string;
+  hora_salida?: string | null;
   notas?: string | null;
+  /** IDs of eventos worked during this registro (writes to registros_horas_eventos). */
+  evento_ids?: string[];
 };
+
+export type RegistroHorasUpdate = {
+  hora_entrada?: string;
+  hora_salida?: string | null;
+  notas?: string | null;
+  evento_ids?: string[];
+};
+
+/** One row in the day-view dashboard: an employee + their registro for a specific date. */
+export interface RegistroHorasDia {
+  empleado: Pick<Empleado, "id" | "nombre" | "rol" | "tarifa_horaria">;
+  registro: RegistroHoras | null;
+  evento_ids: string[];
+}
+
+/** Full response shape for GET /api/registros-horas?fecha=YYYY-MM-DD */
+export interface DiaDashboard {
+  filas: RegistroHorasDia[];
+  eventos: Array<{ id: string; nombre_festejado: string; hora_evento: string }>;
+}

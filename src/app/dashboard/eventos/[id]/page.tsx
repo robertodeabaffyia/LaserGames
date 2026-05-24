@@ -9,6 +9,7 @@ import type { EventoConRelaciones } from "@/types/eventos";
 import type { Pago } from "@/types/pagos";
 import { montoEfectivo, calcularEstadoPago } from "@/types/pagos";
 import { formatDuration } from "@/lib/duration";
+import { formatFecha, formatFechaHora, formatHora } from "@/lib/fecha";
 
 // ── Colour maps ────────────────────────────────────────────────────────────────
 
@@ -110,14 +111,7 @@ export default function EventoDetailPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">{evento.nombre_festejado}</h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            {new Date(evento.fecha_evento).toLocaleString("es-MX", {
-              weekday: "long",
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {formatFechaHora(evento.fecha_evento)}
           </p>
           <p className={`text-sm font-semibold mt-1.5 ${PAGO_STATUS_COLORS[estadoPago]}`}>
             {PAGO_STATUS_LABELS[estadoPago]}
@@ -196,10 +190,7 @@ export default function EventoDetailPage() {
             <div>
               <dt className="text-xs text-gray-500">Hora</dt>
               <dd className="text-gray-300 mt-0.5">
-                {new Date(evento.fecha_evento).toLocaleTimeString("es-MX", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {formatHora(evento.fecha_evento)}
               </dd>
             </div>
             <div>
@@ -285,11 +276,7 @@ export default function EventoDetailPage() {
                     className="flex items-center justify-between rounded-lg bg-gray-800/50 px-4 py-2.5 text-sm"
                   >
                     <span className="text-gray-400">
-                      {new Date(p.fecha_pago).toLocaleDateString("es-MX", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {formatFecha(p.fecha_pago)}
                     </span>
                     <span className="text-xs text-gray-500 capitalize">{p.metodo}</span>
                     <span className="text-white font-medium">

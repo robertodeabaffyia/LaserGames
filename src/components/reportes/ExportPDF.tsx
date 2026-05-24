@@ -1,5 +1,7 @@
 "use client";
 
+import { formatFechaHora } from "@/lib/fecha";
+
 interface Props {
   filename: string;
   title: string;
@@ -21,7 +23,7 @@ export default function ExportPDF({ filename, title, columns, rows, summary, lab
 
     doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
-    doc.text(`Generado: ${new Date().toLocaleString("es-MX")}`, 14, 25);
+    doc.text(`Generado: ${formatFechaHora(new Date())}`, 14, 25);
 
     // Summary block
     let y = 32;

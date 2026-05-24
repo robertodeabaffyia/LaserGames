@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Empleado, RegistroHorasConEmpleado } from "@/types/empleados";
 import { formatearHoras } from "@/lib/registros-horas";
 import { paginate, totalPages, PAGE_SIZE } from "@/lib/pagination";
+import { formatFecha } from "@/lib/fecha";
 
 interface Props {
   empleado: Empleado;
@@ -82,11 +83,7 @@ export default function HistorialRegistros({ empleado }: Props) {
             {pageItems.map((r) => (
               <tr key={r.id} className="hover:bg-gray-800/40 transition-colors">
                 <td className="px-4 py-3 text-gray-300">
-                  {new Date(r.fecha + "T00:00:00").toLocaleDateString("es-MX", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {formatFecha(r.fecha)}
                 </td>
                 <td className="px-4 py-3 text-gray-300">{r.hora_entrada}</td>
                 <td className="px-4 py-3 text-gray-300">{r.hora_salida}</td>

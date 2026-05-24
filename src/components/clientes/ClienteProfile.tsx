@@ -5,6 +5,7 @@ import type { ClientePerfil } from "@/types/clientes";
 import type { Hijo } from "@/types/hijos";
 import ClienteForm from "./ClienteForm";
 import HijoForm from "@/components/hijos/HijoForm";
+import { formatFecha, formatDiaMes } from "@/lib/fecha";
 
 interface ClienteProfileProps {
   clienteId: string;
@@ -77,7 +78,7 @@ export default function ClienteProfile({ clienteId }: ClienteProfileProps) {
               {perfil.telefono && <span>📞 {perfil.telefono}</span>}
               {perfil.email && <span>✉️ {perfil.email}</span>}
               {perfil.fecha_cumpleanos && (
-                <span>🎂 {new Date(perfil.fecha_cumpleanos + "T12:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "long" })}</span>
+                <span>🎂 {formatDiaMes(perfil.fecha_cumpleanos)}</span>
               )}
             </div>
             {perfil.notas && (
@@ -120,11 +121,7 @@ export default function ClienteProfile({ clienteId }: ClienteProfileProps) {
                     <p className="text-sm font-medium text-white">{h.nombre}</p>
                     <p className="text-xs text-gray-500">
                       {edad} años ·{" "}
-                      {new Date(h.fecha_nacimiento + "T12:00:00").toLocaleDateString("es-MX", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {formatFecha(h.fecha_nacimiento)}
                       {h.colegio && <> · {h.colegio}</>}
                     </p>
                   </div>
@@ -172,11 +169,7 @@ export default function ClienteProfile({ clienteId }: ClienteProfileProps) {
                   <tr key={ev.id}>
                     <td className="py-2.5 text-white">{ev.nombre_festejado}</td>
                     <td className="py-2.5 text-gray-400">
-                      {new Date(ev.fecha_evento).toLocaleDateString("es-MX", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {formatFecha(ev.fecha_evento)}
                     </td>
                     <td className="py-2.5 text-gray-400">
                       {ev.paquete?.nombre ?? "—"}

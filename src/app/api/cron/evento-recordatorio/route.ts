@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { renderTemplate, enviarEmail, enviarWhatsApp } from "@/lib/notificaciones";
+import { formatFechaMes, formatHora } from "@/lib/fecha";
 
 function authorizeCron(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -81,8 +82,8 @@ export async function POST(request: NextRequest) {
     const vars: Record<string, string> = {
       nombre_cliente: cliente.nombre,
       nombre_festejado: ev.nombre_festejado,
-      fecha_evento: fechaEvento.toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" }),
-      hora_evento: fechaEvento.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }),
+      fecha_evento: formatFechaMes(fechaEvento),
+      hora_evento: formatHora(fechaEvento),
       nombre_paquete: (ev.paquete as { nombre?: string } | null)?.nombre ?? "—",
     };
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { EventoConRelaciones } from "@/types/eventos";
+import { formatFechaMes, formatHora } from "@/lib/fecha";
 
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 8); // 08:00–21:00
 
@@ -46,12 +47,7 @@ export default function CalendarioDia({
     });
   }
 
-  const dayLabel = date.toLocaleDateString("es-MX", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  const dayLabel = formatFechaMes(date);
 
   const dayEventos = eventos.filter((ev) => sameDay(new Date(ev.fecha_evento), date));
 
@@ -97,16 +93,13 @@ export default function CalendarioDia({
                         {ev.nombre_festejado}
                       </span>
                       <span className="text-xs text-indigo-200">
-                        {new Date(ev.fecha_evento).toLocaleTimeString("es-MX", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatHora(ev.fecha_evento)}
                         {" – "}
-                        {new Date(
+                        {formatHora(new Date(
                           new Date(ev.fecha_evento).getTime() +
                             ev.duracion_horas * 3_600_000 +
                             (ev.duracion_minutos ?? 0) * 60_000
-                        ).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                        ))}
                       </span>
                     </div>
                     {ev.cliente && (

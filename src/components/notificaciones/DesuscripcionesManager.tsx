@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { ClienteDesuscripcion, NotificacionTipo } from "@/types/notificaciones";
 import { NOTIFICACION_TIPOS, NOTIFICACION_TIPO_LABELS } from "@/types/notificaciones";
+import { formatFecha } from "@/lib/fecha";
 
 interface DesuscripcionConCliente extends ClienteDesuscripcion {
   cliente?: { id: string; nombre: string };
@@ -80,7 +81,7 @@ export default function DesuscripcionesManager() {
                       {NOTIFICACION_TIPO_LABELS[d.tipo_notificacion]}
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">
-                      {new Date(d.updated_at).toLocaleDateString("es-MX")}
+                      {formatFecha(d.updated_at)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button

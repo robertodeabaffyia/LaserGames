@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { EventoConRelaciones } from "@/types/eventos";
+import { formatHora } from "@/lib/fecha";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -114,7 +115,7 @@ export default function CalendarioMes({ eventos, onSelectDay }: CalendarioMesPro
                   <div
                     key={ev.id}
                     className="truncate rounded bg-indigo-600/60 px-1 py-0.5 text-[10px] text-white leading-tight"
-                    title={`${ev.nombre_festejado} — ${new Date(ev.fecha_evento).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`}
+                    title={`${ev.nombre_festejado} — ${formatHora(ev.fecha_evento)}`}
                   >
                     {ev.nombre_festejado}
                   </div>

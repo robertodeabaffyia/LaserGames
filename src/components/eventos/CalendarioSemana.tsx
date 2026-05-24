@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { EventoConRelaciones } from "@/types/eventos";
+import { formatFecha, formatHora } from "@/lib/fecha";
 
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 8); // 08:00–21:00
@@ -51,7 +52,7 @@ export default function CalendarioSemana({ eventos, onSelectEvento }: Calendario
     });
   }
 
-  const weekLabel = `${days[0].toLocaleDateString("es-MX", { day: "2-digit", month: "short" })} – ${days[6].toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}`;
+  const weekLabel = `${formatFecha(days[0])} – ${formatFecha(days[6])}`;
   const today = new Date();
 
   return (
@@ -123,10 +124,7 @@ export default function CalendarioSemana({ eventos, onSelectEvento }: Calendario
                         className="w-full text-left rounded bg-indigo-600/70 hover:bg-indigo-500/80 px-1.5 py-0.5 text-[10px] text-white truncate transition-colors"
                         title={ev.nombre_festejado}
                       >
-                        {new Date(ev.fecha_evento).toLocaleTimeString("es-MX", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}{" "}
+                        {formatHora(ev.fecha_evento)}{" "}
                         {ev.nombre_festejado}
                       </button>
                     ))}

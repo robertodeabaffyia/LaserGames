@@ -6,6 +6,7 @@ import EmpleadoForm from "@/components/empleados/EmpleadoForm";
 import EmpleadoPerfil from "@/components/empleados/EmpleadoPerfil";
 import type { Empleado, RegistroHoras, UsuarioRol } from "@/types/empleados";
 import { createClient } from "@/lib/supabase/client";
+import { formatFecha } from "@/lib/fecha";
 
 type EmpleadoConHoras = Empleado & { registros_horas: RegistroHoras[] };
 
@@ -93,11 +94,7 @@ export default function EmpleadoDetailPage() {
                 {empleado.fecha_contratacion && (
                   <span>
                     Desde:{" "}
-                    {new Date(empleado.fecha_contratacion).toLocaleDateString("es-MX", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    {formatFecha(empleado.fecha_contratacion)}
                   </span>
                 )}
               </div>

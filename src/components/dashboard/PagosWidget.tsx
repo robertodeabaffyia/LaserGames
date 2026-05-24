@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { formatFecha } from "@/lib/fecha";
 
 interface EventoResumen {
   id: string;
@@ -100,10 +101,7 @@ export default function PagosWidget() {
                   {ev.nombre_festejado}
                 </span>
                 <span className="text-gray-500 ml-1.5">
-                  {new Date(ev.fecha_evento).toLocaleDateString("es-MX", {
-                    day: "2-digit",
-                    month: "short",
-                  })}
+                  {formatFecha(ev.fecha_evento)}
                 </span>
               </div>
               <div className="text-right shrink-0 ml-3">

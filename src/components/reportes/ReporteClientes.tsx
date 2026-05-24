@@ -7,11 +7,11 @@ import { rangoFromPeriodo } from "./PeriodoPicker";
 import PeriodoPicker from "./PeriodoPicker";
 import ExportPDF from "./ExportPDF";
 import ExportExcel from "./ExportExcel";
+import { formatFecha } from "@/lib/fecha";
 
 function fmt(n: number) { return `$${n.toLocaleString("es-MX", { maximumFractionDigits: 0 })}`; }
 function fmtDate(s: string | null) {
-  if (!s) return "—";
-  return new Date(s).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+  return formatFecha(s);
 }
 
 export default function ReporteClientes() {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatFecha } from "@/lib/fecha";
 
 interface EventoPendiente {
   id: string;
@@ -55,11 +56,7 @@ export default function PendingEventsWidget() {
 
       {!loading &&
         data?.eventos.map((ev) => {
-          const fecha = new Date(ev.fecha_evento).toLocaleDateString("es-MX", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          });
+          const fecha = formatFecha(ev.fecha_evento);
           return (
             <div
               key={ev.id}

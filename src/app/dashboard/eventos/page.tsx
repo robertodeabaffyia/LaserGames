@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import EventoForm from "@/components/eventos/EventoForm";
 import EventoList from "@/components/eventos/EventoList";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import CalendarioMes from "@/components/eventos/CalendarioMes";
 import CalendarioSemana from "@/components/eventos/CalendarioSemana";
 import CalendarioDia from "@/components/eventos/CalendarioDia";
@@ -11,9 +13,9 @@ import type { EventoConRelaciones } from "@/types/eventos";
 type Vista = "lista" | "mes" | "semana" | "dia";
 
 export default function EventosPage() {
+  const router = useRouter();
   const [vista, setVista] = useState<Vista>("lista");
   const [showForm, setShowForm] = useState(false);
-  const [editando, setEditando] = useState<EventoConRelaciones | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [allEventos, setAllEventos] = useState<EventoConRelaciones[]>([]);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -29,13 +31,7 @@ export default function EventosPage() {
 
   function handleSuccess() {
     setShowForm(false);
-    setEditando(null);
     setRefreshKey((k) => k + 1);
-  }
-
-  function handleEdit(evento: EventoConRelaciones) {
-    setEditando(evento);
-    setShowForm(true);
   }
 
   async function handleDelete(id: string) {
@@ -63,7 +59,7 @@ export default function EventosPage() {
         </div>
         {!showForm && (
           <button
-            onClick={() => { setEditando(null); setShowForm(true); }}
+            onClick={() => setShowForm(true)}
             className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition-colors"
           >
             + Nuevo evento
@@ -74,13 +70,10 @@ export default function EventosPage() {
       {/* Form panel */}
       {showForm && (
         <div className="mb-8 rounded-xl border border-gray-800 bg-gray-900/60 p-6">
-          <h2 className="text-lg font-semibold text-white mb-5">
-            {editando ? "Editar evento" : "Nuevo evento"}
-          </h2>
+          <h2 className="text-lg font-semibold text-white mb-5">Nuevo evento</h2>
           <EventoForm
-            evento={editando ?? undefined}
             onSuccess={handleSuccess}
-            onCancel={() => { setShowForm(false); setEditando(null); }}
+            onCancel={() => setShowForm(false)}
           />
         </div>
       )}
@@ -104,11 +97,12 @@ export default function EventosPage() {
 
       {/* Views */}
       {vista === "lista" && (
-        <EventoList
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          refreshKey={refreshKey}
-        />
+        <ErrorBoundary>
+          <EventoList
+            onDelete={handleDelete}
+            refreshKey={refreshKey}
+          />
+        </ErrorBoundary>
       )}
 
       {vista === "mes" && (
@@ -121,7 +115,7 @@ export default function EventosPage() {
       {vista === "semana" && (
         <CalendarioSemana
           eventos={allEventos}
-          onSelectEvento={handleEdit}
+          onSelectEvento={(ev) => router.push(`/dashboard/eventos/${ev.id}`)}
         />
       )}
 
@@ -129,7 +123,7 @@ export default function EventosPage() {
         <CalendarioDia
           eventos={allEventos}
           initialDate={selectedDay ?? undefined}
-          onSelectEvento={handleEdit}
+          onSelectEvento={(ev) => router.push(`/dashboard/eventos/${ev.id}`)}
         />
       )}
     </div>

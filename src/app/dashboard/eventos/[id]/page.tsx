@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import PagoForm from "@/components/pagos/PagoForm";
 import HistorialPagos from "@/components/pagos/HistorialPagos";
+import EventoForm from "@/components/eventos/EventoForm";
 import type { EventoConRelaciones } from "@/types/eventos";
 import type { Pago } from "@/types/pagos";
 import { montoEfectivo, calcularEstadoPago } from "@/types/pagos";
@@ -47,6 +48,7 @@ export default function EventoDetailPage() {
   const [montoSena, setMontoSena] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showPagoModal, setShowPagoModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("detalle");
 
   const loadEvento = useCallback(async () => {
@@ -122,13 +124,21 @@ export default function EventoDetailPage() {
           </p>
         </div>
 
-        <span
-          className={`self-start text-xs font-semibold capitalize px-3 py-1.5 rounded-full border ${
-            ESTADO_COLORS[evento.estado] ?? "text-gray-400 border-gray-600"
-          }`}
-        >
-          {evento.estado.replace("_", " ")}
-        </span>
+        <div className="flex items-center gap-3 self-start">
+          <span
+            className={`text-xs font-semibold capitalize px-3 py-1.5 rounded-full border ${
+              ESTADO_COLORS[evento.estado] ?? "text-gray-400 border-gray-600"
+            }`}
+          >
+            {evento.estado.replace("_", " ")}
+          </span>
+          <button
+            onClick={() => setShowEditModal(true)}
+            className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition-colors"
+          >
+            ✏️ Editar evento
+          </button>
+        </div>
       </div>
 
       {/* ── Tabs ── */}
@@ -261,6 +271,30 @@ export default function EventoDetailPage() {
                 loadEvento();
               }}
               onCancel={() => setShowPagoModal(false)}
+            />
+          </div>
+        </div>
+      )}
+      {/* ── Edit modal ── */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-2xl bg-gray-900 rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-bold text-white">Editar evento</h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-500 hover:text-gray-300 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            <EventoForm
+              evento={evento}
+              onSuccess={() => {
+                setShowEditModal(false);
+                loadEvento();
+              }}
+              onCancel={() => setShowEditModal(false)}
             />
           </div>
         </div>

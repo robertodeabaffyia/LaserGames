@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { EVENTO_ESTADOS, type EventoEstado, type EventoConRelaciones } from "@/types/eventos";
 
 const ESTADO_COLORS: Record<EventoEstado, string> = {
@@ -13,14 +14,15 @@ const ESTADO_COLORS: Record<EventoEstado, string> = {
 };
 
 interface EventoListProps {
-  onEdit: (evento: EventoConRelaciones) => void;
   onDelete: (id: string) => void;
   refreshKey?: number;
 }
 
-export default function EventoList({ onEdit, onDelete, refreshKey }: EventoListProps) {
+export default function EventoList({ onDelete, refreshKey }: EventoListProps) {
+  const router = useRouter();
   const [eventos, setEventos] = useState<EventoConRelaciones[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [estadoFilter, setEstadoFilter] = useState<EventoEstado | "">("");
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
@@ -34,7 +36,13 @@ export default function EventoList({ onEdit, onDelete, refreshKey }: EventoListP
 
     const res = await fetch(`/api/eventos?${params}`);
     const data = await res.json();
-    setEventos(data ?? []);
+    if (!res.ok || !Array.isArray(data)) {
+      setFetchError(data?.error ?? "Error al cargar los eventos");
+      setEventos([]);
+    } else {
+      setFetchError(null);
+      setEventos(data);
+    }
     setLoading(false);
   }, [estadoFilter, fechaInicio, fechaFin, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -46,6 +54,21 @@ export default function EventoList({ onEdit, onDelete, refreshKey }: EventoListP
     return (
       <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
         Cargando eventos…
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="rounded-xl border border-red-800 bg-red-900/20 px-6 py-8 text-center">
+        <p className="text-sm font-medium text-red-300">No se pudieron cargar los eventos</p>
+        <p className="text-xs text-red-500 mt-1">{fetchError}</p>
+        <button
+          onClick={load}
+          className="mt-4 rounded-lg border border-red-700 px-4 py-1.5 text-xs text-red-300 hover:text-white hover:border-red-500 transition-colors"
+        >
+          Reintentar
+        </button>
       </div>
     );
   }
@@ -135,10 +158,10 @@ export default function EventoList({ onEdit, onDelete, refreshKey }: EventoListP
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
                       <button
-                        onClick={() => onEdit(ev)}
+                        onClick={() => router.push(`/dashboard/eventos/${ev.id}`)}
                         className="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors"
                       >
-                        Editar
+                        Ver/Editar
                       </button>
                       <button
                         onClick={() => onDelete(ev.id)}

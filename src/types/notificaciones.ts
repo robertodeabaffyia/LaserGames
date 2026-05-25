@@ -1,7 +1,9 @@
 export type NotificacionTipo =
   | "evento_recordatorio"
   | "promocion_cumpleanos"
-  | "confirmacion_evento";
+  | "confirmacion_evento"
+  | "campania_cumpleanos"
+  | "solicitud_resena";
 
 export type NotificacionCanal = "email" | "whatsapp" | "ambos";
 export type NotificacionStatus = "enviado" | "fallido";
@@ -10,12 +12,16 @@ export const NOTIFICACION_TIPOS: NotificacionTipo[] = [
   "evento_recordatorio",
   "promocion_cumpleanos",
   "confirmacion_evento",
+  "campania_cumpleanos",
+  "solicitud_resena",
 ];
 
 export const NOTIFICACION_TIPO_LABELS: Record<NotificacionTipo, string> = {
   evento_recordatorio: "Recordatorio de evento",
   promocion_cumpleanos: "Promoción cumpleaños",
   confirmacion_evento: "Confirmación de evento",
+  campania_cumpleanos: "Campaña cumpleaños próximos",
+  solicitud_resena: "Solicitud de reseña",
 };
 
 export const CANAL_LABELS: Record<NotificacionCanal, string> = {
@@ -70,4 +76,31 @@ export interface ClienteDesuscripcion {
 export interface EnvioResult {
   ok: boolean;
   error?: string;
+}
+
+// ── Campaña cumpleaños próximos ──────────────────────────────────────────────
+
+/** One entry in the campaign target list */
+export interface CampaniaTarget {
+  hijo_id: string;
+  hijo_nombre: string;
+  fecha_nacimiento: string; // YYYY-MM-DD
+  dias_hasta_cumple: number;
+  cliente_id: string;
+  cliente_nombre: string;
+  cliente_telefono: string | null;
+  cliente_email: string | null;
+  tiene_evento_futuro: boolean; // true = already has an upcoming booking
+}
+
+export interface CampaniaEnviarBody {
+  hijo_ids: string[];
+  template: string;
+  canal: NotificacionCanal;
+}
+
+export interface CampaniaEnviarResult {
+  enviados: number;
+  omitidos: number; // unsubscribed or no contact info
+  errores: string[];
 }

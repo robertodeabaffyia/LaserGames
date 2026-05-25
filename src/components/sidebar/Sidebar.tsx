@@ -17,7 +17,8 @@ const NAV = [
 ];
 
 const SUPERVISOR_NAV = [
-  { href: "/dashboard/registros-horas", label: "Registros de Horas", icon: "⏱️" },
+  { href: "/dashboard/registros-horas",          label: "Registros de Horas", icon: "⏱️" },
+  { href: "/dashboard/campanias/cumpleanos",      label: "Campaña Cumpleaños", icon: "🎂" },
 ];
 
 const ADMIN_NAV = [

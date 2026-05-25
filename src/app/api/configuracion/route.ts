@@ -98,6 +98,7 @@ export async function PUT(request: NextRequest) {
         tarjeta_recargos: body.tarjeta_recargos,
         ...(body.precio_nino_adicional !== undefined && { precio_nino_adicional: body.precio_nino_adicional }),
         ...(body.precio_adulto_adicional !== undefined && { precio_adulto_adicional: body.precio_adulto_adicional }),
+        ...(body.google_maps_url !== undefined && { google_maps_url: body.google_maps_url ?? null }),
       },
       { onConflict: "usuario_id" }
     )

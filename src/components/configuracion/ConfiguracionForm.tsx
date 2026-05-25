@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   TARJETAS,
   CUOTAS,
@@ -15,6 +16,7 @@ interface ConfiguracionFormProps {
 }
 
 export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps) {
+  const router = useRouter();
   const [montoSeña, setMontoSeña] = useState<string>("0");
   const [precioNinoAdicional, setPrecioNinoAdicional] = useState<string>("0");
   const [precioAdultoAdicional, setPrecioAdultoAdicional] = useState<string>("0");
@@ -73,7 +75,11 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
       setError(data.error ?? "Error al guardar");
     } else {
       setSuccess(true);
-      onSuccess?.();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push("/dashboard");
+      }
     }
 
     setSaving(false);

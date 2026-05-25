@@ -1,16 +1,8 @@
-"use client";
+export const dynamic = "force-dynamic";
 
-import { useRouter } from "next/navigation";
 import ConfiguracionForm from "@/components/configuracion/ConfiguracionForm";
 
 export default function ConfiguracionPage() {
-  const router = useRouter();
-
-  function handleSuccess() {
-    // Cookie is set by PUT /api/configuracion; redirect to dashboard
-    router.push("/dashboard");
-  }
-
   return (
     <div className="max-w-2xl">
       <div className="mb-8">
@@ -21,7 +13,7 @@ export default function ConfiguracionPage() {
       </div>
 
       <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-6">
-        <ConfiguracionForm onSuccess={handleSuccess} />
+        <ConfiguracionForm />
       </div>
     </div>
   );

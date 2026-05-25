@@ -99,14 +99,9 @@ export default function EventoForm({
 
       if (configRes.ok) {
         const cfg = await configRes.json();
+        // Always use current config prices — never stale stored evento prices
         setPrecioNinoAdicional(cfg?.precio_nino_adicional ?? 0);
         setPrecioAdultoAdicional(cfg?.precio_adulto_adicional ?? 0);
-      }
-
-      // Edit mode: preserve stored prices from the evento record
-      if (evento) {
-        setPrecioNinoAdicional(evento.precio_nino_extra ?? 0);
-        setPrecioAdultoAdicional(evento.precio_adulto ?? 0);
       }
 
       // Edit mode: load current client for display (no auto-fill — values come from the evento)

@@ -1,7 +1,26 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+/**
+ * API routes that bypass session validation (handle their own auth or are public):
+ *   /api/cron/*          — uses Bearer CRON_SECRET
+ *   /api/desuscripciones — unauthenticated unsubscribe links
+ *   /api/auth/*          — Supabase Auth callbacks
+ */
+const API_EXEMPT_PREFIXES = [
+  "/api/cron/",
+  "/api/desuscripciones",
+  "/api/auth/",
+];
+
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Let exempt API routes through without touching the session
+  if (API_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    return NextResponse.next();
+  }
+
   // Supabase requires us to mutate cookies on both request and response
   // to keep the session refreshed.
   let supabaseResponse = NextResponse.next({ request });
@@ -34,10 +53,8 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
-
-  // ── Auth routes ─────────────────────────────────────────────
-  // Redirect authenticated users away from login
+  // ── Auth routes ──────────────────────────────────────────────────────────
+  // Redirect authenticated users away from login / signup
   if (pathname.startsWith("/login") || pathname.startsWith("/signup")) {
     if (user) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
@@ -45,7 +62,14 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // ── Protected routes ─────────────────────────────────────────
+  // ── API routes ───────────────────────────────────────────────────────────
+  // Unauthenticated API calls get a 401 (individual routes also check this,
+  // but this provides an extra edge-level defense).
+  if (pathname.startsWith("/api/") && !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // ── Protected page routes ────────────────────────────────────────────────
   // /dashboard/* and /admin/* require authentication
   const isProtected =
     pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
@@ -56,7 +80,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // ── Config guard ─────────────────────────────────────────────
+  // ── Config guard ─────────────────────────────────────────────────────────
   // After first login, redirect to /admin/configuracion if no config saved yet.
   // The cookie x-config-ok is set by GET/PUT /api/configuracion when config exists.
   if (
@@ -76,11 +100,9 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
-     * - api routes (handled by their own auth checks)
-     * - Next.js static / image optimisation
-     * - metadata files
+     * Match all request paths except Next.js internals and static assets.
+     * Includes /api/* so unauthenticated API calls get a 401 at the edge.
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
   ],
 };

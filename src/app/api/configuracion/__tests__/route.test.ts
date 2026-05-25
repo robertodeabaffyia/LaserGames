@@ -64,6 +64,16 @@ describe("GET /api/configuracion", () => {
     expect(res.headers.get("set-cookie")).toMatch(/x-config-ok=1/);
   });
 
+  it("returns precio_nino_adicional and precio_adulto_adicional", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    mockFrom.mockReturnValue(chain({ data: mockConfig, error: null }));
+
+    const res = await GET();
+    const body = await res.json();
+    expect(body.precio_nino_adicional).toBe(150);
+    expect(body.precio_adulto_adicional).toBe(100);
+  });
+
   it("returns 404 when no config exists", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
     mockFrom.mockReturnValue(
@@ -118,6 +128,41 @@ describe("PUT /api/configuracion", () => {
     const body = await res.json();
     expect(body.monto_seña).toBe(1000); // mock returns mockConfig
     expect(res.headers.get("set-cookie")).toMatch(/x-config-ok=1/);
+  });
+
+  it("saves precio_nino_adicional and precio_adulto_adicional when provided", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    const upsertChain = chain({ data: mockConfig, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }))
+      .mockReturnValueOnce(upsertChain);
+
+    const res = await PUT(req("PUT", {
+      ...validBody,
+      precio_nino_adicional: 150,
+      precio_adulto_adicional: 100,
+    }));
+    expect(res.status).toBe(200);
+    expect(upsertChain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        precio_nino_adicional: 150,
+        precio_adulto_adicional: 100,
+      }),
+      expect.any(Object)
+    );
+  });
+
+  it("omits precio fields from upsert when not provided", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    const upsertChain = chain({ data: mockConfig, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }))
+      .mockReturnValueOnce(upsertChain);
+
+    await PUT(req("PUT", validBody)); // no precio fields
+    const upsertArg = upsertChain.upsert.mock.calls[0][0];
+    expect(upsertArg).not.toHaveProperty("precio_nino_adicional");
+    expect(upsertArg).not.toHaveProperty("precio_adulto_adicional");
   });
 
   it("returns 400 when monto_seña is missing", async () => {

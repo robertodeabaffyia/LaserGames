@@ -16,6 +16,8 @@ interface ConfiguracionFormProps {
 
 export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps) {
   const [montoSeña, setMontoSeña] = useState<string>("0");
+  const [precioNinoAdicional, setPrecioNinoAdicional] = useState<string>("0");
+  const [precioAdultoAdicional, setPrecioAdultoAdicional] = useState<string>("0");
   const [recargos, setRecargos] = useState<TarjetaRecargos>(DEFAULT_RECARGOS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,6 +30,8 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
       .then((data) => {
         if (data) {
           setMontoSeña(String(data.monto_seña));
+          setPrecioNinoAdicional(String(data.precio_nino_adicional ?? 0));
+          setPrecioAdultoAdicional(String(data.precio_adulto_adicional ?? 0));
           setRecargos(data.tarjeta_recargos ?? DEFAULT_RECARGOS);
         }
         setLoading(false);
@@ -55,6 +59,8 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         monto_seña: Number(montoSeña),
+        precio_nino_adicional: Number(precioNinoAdicional),
+        precio_adulto_adicional: Number(precioAdultoAdicional),
         tarjeta_recargos: recargos,
       }),
     });
@@ -108,6 +114,44 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
           <span className="text-xs text-gray-500">
             El primer pago debe ser ≥ a este monto para confirmar la reserva.
           </span>
+        </div>
+      </div>
+
+      {/* Precios adicionales por invitado */}
+      <div>
+        <h2 className="text-base font-semibold text-white mb-1">Precios adicionales por invitado</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          Precio cobrado por cada niño o adulto que supere los incluidos en el paquete.
+        </p>
+        <div className="flex flex-wrap gap-6">
+          <div>
+            <label className="label">Precio niño adicional</label>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 text-sm">$</span>
+              <input
+                type="number"
+                className="input w-36"
+                min={0}
+                step="0.01"
+                value={precioNinoAdicional}
+                onChange={(e) => setPrecioNinoAdicional(e.target.value)}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="label">Precio adulto adicional</label>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 text-sm">$</span>
+              <input
+                type="number"
+                className="input w-36"
+                min={0}
+                step="0.01"
+                value={precioAdultoAdicional}
+                onChange={(e) => setPrecioAdultoAdicional(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
       </div>
 

@@ -25,6 +25,8 @@ export interface Configuracion {
   precio_nino_adicional: number;
   /** Price charged per extra adult above paquete.cantidad_adultos_incluidos */
   precio_adulto_adicional: number;
+  /** Direct link to Google Maps review page for this business */
+  google_maps_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -34,4 +36,5 @@ export type ConfiguracionUpdate = {
   tarjeta_recargos: TarjetaRecargos;
   precio_nino_adicional?: number;
   precio_adulto_adicional?: number;
+  google_maps_url?: string | null;
 };

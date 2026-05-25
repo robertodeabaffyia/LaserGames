@@ -2,7 +2,8 @@ export type NotificacionTipo =
   | "evento_recordatorio"
   | "promocion_cumpleanos"
   | "confirmacion_evento"
-  | "campania_cumpleanos";
+  | "campania_cumpleanos"
+  | "solicitud_resena";
 
 export type NotificacionCanal = "email" | "whatsapp" | "ambos";
 export type NotificacionStatus = "enviado" | "fallido";
@@ -12,6 +13,7 @@ export const NOTIFICACION_TIPOS: NotificacionTipo[] = [
   "promocion_cumpleanos",
   "confirmacion_evento",
   "campania_cumpleanos",
+  "solicitud_resena",
 ];
 
 export const NOTIFICACION_TIPO_LABELS: Record<NotificacionTipo, string> = {
@@ -19,6 +21,7 @@ export const NOTIFICACION_TIPO_LABELS: Record<NotificacionTipo, string> = {
   promocion_cumpleanos: "Promoción cumpleaños",
   confirmacion_evento: "Confirmación de evento",
   campania_cumpleanos: "Campaña cumpleaños próximos",
+  solicitud_resena: "Solicitud de reseña",
 };
 
 export const CANAL_LABELS: Record<NotificacionCanal, string> = {

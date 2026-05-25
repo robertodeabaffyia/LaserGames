@@ -30,6 +30,7 @@ const mockConfig = {
   tarjeta_recargos: { VISA: { "1": 0, "3": 3.5 } },
   precio_nino_adicional: 150,
   precio_adulto_adicional: 100,
+  google_maps_url: "https://maps.google.com/?cid=123",
   created_at: "2026-01-01",
   updated_at: "2026-01-01",
 };
@@ -150,6 +151,32 @@ describe("PUT /api/configuracion", () => {
       }),
       expect.any(Object)
     );
+  });
+
+  it("saves google_maps_url when provided", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    const upsertChain = chain({ data: mockConfig, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }))
+      .mockReturnValueOnce(upsertChain);
+
+    await PUT(req("PUT", { ...validBody, google_maps_url: "https://maps.google.com/?cid=123" }));
+    expect(upsertChain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ google_maps_url: "https://maps.google.com/?cid=123" }),
+      expect.any(Object)
+    );
+  });
+
+  it("omits google_maps_url from upsert when not provided", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    const upsertChain = chain({ data: mockConfig, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }))
+      .mockReturnValueOnce(upsertChain);
+
+    await PUT(req("PUT", validBody)); // no google_maps_url
+    const upsertArg = upsertChain.upsert.mock.calls[0][0];
+    expect(upsertArg).not.toHaveProperty("google_maps_url");
   });
 
   it("omits precio fields from upsert when not provided", async () => {

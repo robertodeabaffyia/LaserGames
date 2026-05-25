@@ -18,6 +18,7 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
   const [montoSeña, setMontoSeña] = useState<string>("0");
   const [precioNinoAdicional, setPrecioNinoAdicional] = useState<string>("0");
   const [precioAdultoAdicional, setPrecioAdultoAdicional] = useState<string>("0");
+  const [googleMapsUrl, setGoogleMapsUrl] = useState<string>("");
   const [recargos, setRecargos] = useState<TarjetaRecargos>(DEFAULT_RECARGOS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,6 +33,7 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
           setMontoSeña(String(data.monto_seña));
           setPrecioNinoAdicional(String(data.precio_nino_adicional ?? 0));
           setPrecioAdultoAdicional(String(data.precio_adulto_adicional ?? 0));
+          setGoogleMapsUrl(data.google_maps_url ?? "");
           setRecargos(data.tarjeta_recargos ?? DEFAULT_RECARGOS);
         }
         setLoading(false);
@@ -61,6 +63,7 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
         monto_seña: Number(montoSeña),
         precio_nino_adicional: Number(precioNinoAdicional),
         precio_adulto_adicional: Number(precioAdultoAdicional),
+        google_maps_url: googleMapsUrl.trim() || null,
         tarjeta_recargos: recargos,
       }),
     });
@@ -153,6 +156,35 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Google Maps URL */}
+      <div>
+        <h2 className="text-base font-semibold text-white mb-1">Reseñas en Google Maps</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          Link directo a tu página de reseñas de Google. Se incluye automáticamente en los
+          mensajes de solicitud de reseña post-evento.
+        </p>
+        <div className="flex items-center gap-2 max-w-lg">
+          <span className="text-gray-400 text-sm shrink-0">🔗</span>
+          <input
+            type="url"
+            className="input flex-1"
+            placeholder="https://maps.google.com/..."
+            value={googleMapsUrl}
+            onChange={(e) => setGoogleMapsUrl(e.target.value)}
+          />
+        </div>
+        {googleMapsUrl && (
+          <a
+            href={googleMapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1.5 inline-block text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            Verificar link ↗
+          </a>
+        )}
       </div>
 
       {/* Recargos por tarjeta */}

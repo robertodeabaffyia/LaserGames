@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
+import {
+  requireUser,
+  unauthorizedResponse,
+  forbiddenResponse,
+  getUserRol,
+  hasMinRole,
+} from "@/lib/auth-helpers";
 import type { HijoUpdate } from "@/types/hijos";
 
 type Params = { params: Promise<{ id: string }> };
@@ -40,6 +46,11 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
   const user = await requireUser(supabase);
   if (!user) return unauthorizedResponse();
+
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) {
+    return forbiddenResponse("Solo supervisores o administradores pueden eliminar hijos");
+  }
 
   const { error } = await supabase.from("hijos").delete().eq("id", id);
 

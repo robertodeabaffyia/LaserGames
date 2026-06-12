@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
+import {
+  requireUser,
+  unauthorizedResponse,
+  forbiddenResponse,
+  getUserRol,
+  hasMinRole,
+} from "@/lib/auth-helpers";
 import * as XLSX from "xlsx";
 
 /**
@@ -11,6 +17,11 @@ export async function GET(request: NextRequest) {
   const authSupabase = await createClient();
   const user = await requireUser(authSupabase);
   if (!user) return unauthorizedResponse();
+
+  const rol = await getUserRol(authSupabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) {
+    return forbiddenResponse("Acceso restringido a supervisores o administradores");
+  }
 
   const { searchParams } = new URL(request.url);
   const mes = searchParams.get("mes"); // e.g. "2026-06"

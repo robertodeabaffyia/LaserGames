@@ -14,6 +14,15 @@ jest.mock("@/lib/supabase/server", () => ({
   ),
 }));
 
+// Mock auth-helpers so role checks pass without touching the DB
+jest.mock("@/lib/auth-helpers", () => {
+  const actual = jest.requireActual("@/lib/auth-helpers");
+  return {
+    ...actual,
+    getUserRol: jest.fn().mockResolvedValue("admin"),
+  };
+});
+
 // Builds a Supabase-like thenable chain where every method returns itself.
 // The chain resolves to `result` when awaited.
 function chain(result: unknown) {
@@ -76,6 +85,14 @@ describe("GET /api/paquetes", () => {
 // ── POST /api/paquetes ────────────────────────────────────────────────────────
 
 describe("POST /api/paquetes", () => {
+  it("returns 403 when user is not admin (catalog writes are admin-only)", async () => {
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("supervisor");
+
+    const res = await POST(req("POST", { nombre: "Paquete X", precio: 500 }));
+    expect(res.status).toBe(403);
+  });
+
   it("returns 201 and the created package (no items)", async () => {
     mockFrom.mockReturnValue(chain({ data: mockPaquete, error: null }));
 

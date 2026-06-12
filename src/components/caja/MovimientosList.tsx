@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { MovimientoCaja, MovimientoTipo, MovimientoCategoria } from "@/types/caja";
-import { MOVIMIENTO_CATEGORIAS } from "@/types/caja";
+import { MOVIMIENTO_CATEGORIAS, CATEGORIA_LABELS } from "@/types/caja";
 import { formatMoneda } from "@/lib/moneda";
 
 interface MovimientosListProps {
@@ -22,16 +22,6 @@ function getWeekRange(date: Date): { desde: string; hasta: string } {
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   return { desde: fmt(monday), hasta: fmt(sunday) };
 }
-
-const CATEGORIA_LABELS: Record<MovimientoCategoria, string> = {
-  pago_evento: "Pago evento",
-  salario: "Salario",
-  bono: "Bono",
-  compras: "Compras",
-  servicios: "Servicios",
-  mantenimiento: "Mantenimiento",
-  otros: "Otros",
-};
 
 const TIPO_COLORS: Record<MovimientoTipo, string> = {
   ingreso: "text-green-400",

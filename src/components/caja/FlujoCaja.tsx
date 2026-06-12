@@ -1,30 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { MovimientoCaja, MovimientoCategoria } from "@/types/caja";
-import { MOVIMIENTO_CATEGORIAS } from "@/types/caja";
+import type { MovimientoCaja, MovimientoCategoria, NominaResultado } from "@/types/caja";
+import { MOVIMIENTO_CATEGORIAS, CATEGORIA_LABELS } from "@/types/caja";
 import { formatearHoras } from "@/lib/registros-horas";
 import { formatMoneda } from "@/lib/moneda";
-
-const CATEGORIA_LABELS: Record<MovimientoCategoria, string> = {
-  pago_evento: "Pago evento",
-  salario: "Salario",
-  bono: "Bono",
-  compras: "Compras",
-  servicios: "Servicios",
-  mantenimiento: "Mantenimiento",
-  otros: "Otros",
-};
-
-interface NominaResultado {
-  empleado_id: string;
-  nombre: string;
-  horas: number;
-  tarifa: number;
-  total_salario: number;
-  total_bonos: number;
-  total_egreso: number;
-}
 
 export default function FlujoCaja() {
   const today = new Date();

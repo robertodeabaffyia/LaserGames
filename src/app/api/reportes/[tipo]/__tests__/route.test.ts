@@ -296,3 +296,86 @@ describe("GET /api/reportes/movimientos", () => {
     expect(res.status).toBe(500);
   });
 });
+
+// ── tendencia ──────────────────────────────────────────────────────────────────
+// System time is 2026-05-21, so the 12-month window is 2025-06 … 2026-05.
+
+describe("GET /api/reportes/tendencia", () => {
+  const movimientos = [
+    { tipo: "ingreso", monto: 5000, fecha: "2026-05-10" },
+    { tipo: "egreso",  monto: 1000, fecha: "2026-05-15" },
+    { tipo: "ingreso", monto: 3000, fecha: "2026-04-12" },
+  ];
+  const eventos = [
+    { fecha_evento: "2026-05-10T15:00:00Z" },
+    { fecha_evento: "2026-05-20T15:00:00Z" },
+  ];
+
+  it("aggregates by month with zero-filled gaps", async () => {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: movimientos, error: null })) // movimientos_caja
+      .mockReturnValueOnce(chain({ data: eventos, error: null }));    // eventos
+
+    const res = await GET(req("tendencia"), params("tendencia"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.meses).toHaveLength(12);
+    expect(body.meses[0].mes).toBe("2025-06");
+    expect(body.meses[11].mes).toBe("2026-05");
+
+    const mayo = body.meses[11];
+    expect(mayo.ingresos).toBe(5000);
+    expect(mayo.egresos).toBe(1000);
+    expect(mayo.ganancia).toBe(4000);
+    expect(mayo.eventos).toBe(2);
+    expect(mayo.ticket_promedio).toBe(2500);
+
+    // Months without data are zero-filled, not missing
+    const enero = body.meses.find((m: { mes: string }) => m.mes === "2026-01");
+    expect(enero).toEqual({ mes: "2026-01", ingresos: 0, egresos: 0, ganancia: 0, eventos: 0, ticket_promedio: 0 });
+  });
+
+  it("computes summary stats (mejor mes, variación MoM, margen)", async () => {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: movimientos, error: null }))
+      .mockReturnValueOnce(chain({ data: eventos, error: null }));
+
+    const res = await GET(req("tendencia"), params("tendencia"));
+    const body = await res.json();
+
+    expect(body.mejor_mes).toBe("2026-05");
+    // MoM: abril 3000 → mayo 5000 = +66.67%
+    expect(body.variacion_ingresos_pct).toBeCloseTo(66.67, 1);
+    // margen: ganancia total 7000 / ingresos 8000 = 87.5%
+    expect(body.margen_promedio_pct).toBeCloseTo(87.5, 1);
+  });
+
+  it("clamps meses param to a minimum of 3", async () => {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: [], error: null }))
+      .mockReturnValueOnce(chain({ data: [], error: null }));
+
+    const res = await GET(req("tendencia", "meses=1"), params("tendencia"));
+    const body = await res.json();
+    expect(body.meses).toHaveLength(3);
+  });
+
+  it("returns null stats when there is no data", async () => {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: [], error: null }))
+      .mockReturnValueOnce(chain({ data: [], error: null }));
+
+    const res = await GET(req("tendencia"), params("tendencia"));
+    const body = await res.json();
+    expect(body.mejor_mes).toBeNull();
+    expect(body.variacion_ingresos_pct).toBeNull();
+    expect(body.margen_promedio_pct).toBeNull();
+  });
+
+  it("returns 500 on DB error", async () => {
+    mockFrom.mockReturnValueOnce(chain({ data: null, error: { message: "fail" } }));
+    const res = await GET(req("tendencia"), params("tendencia"));
+    expect(res.status).toBe(500);
+  });
+});

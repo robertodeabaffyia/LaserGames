@@ -5,9 +5,7 @@ import KPICard from "./KPICard";
 import type { KPIs } from "@/types/reportes";
 import { formatMoneda } from "@/lib/moneda";
 
-function fmt(n: number) {
-  return formatMoneda(n);
-}
+const fmt = formatMoneda;
 
 export default function KPIsPanel() {
   const [kpis, setKpis] = useState<KPIs | null>(null);

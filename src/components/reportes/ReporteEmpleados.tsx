@@ -13,7 +13,7 @@ import ExportPDF from "./ExportPDF";
 import ExportExcel from "./ExportExcel";
 import { formatMoneda } from "@/lib/moneda";
 
-function fmt(n: number) { return formatMoneda(n); }
+const fmt = formatMoneda;
 function fmtH(n: number) {
   return `${Math.floor(n)}h ${Math.round((n % 1) * 60)}m`;
 }

@@ -1,3 +1,10 @@
+/**
+ * Authentication and role helpers for API routes.
+ *
+ * Roles: admin > supervisor > general (see ROL_WEIGHT). Every route must call
+ * requireUser itself (defense in depth — proxy.ts also guards, but routes
+ * must not rely on it), and add hasMinRole checks per the access matrix.
+ */
 import { NextResponse } from "next/server";
 
 export type UsuarioRol = "admin" | "supervisor" | "general";

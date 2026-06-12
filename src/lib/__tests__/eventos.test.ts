@@ -196,7 +196,7 @@ describe("eventoFechaToLocal", () => {
     // .toISOString(), the hora would differ from the local-time value.
     // The round-trip test above already catches this; this test makes it explicit.
     const original = "2026-05-23T18:30:00.000Z";
-    const { fecha, hora } = eventoFechaToLocal(original);
+    const { hora } = eventoFechaToLocal(original);
     const localDate = new Date(original);
     const expectedHora = [
       String(localDate.getHours()).padStart(2, "0"),
@@ -275,9 +275,9 @@ describe("calcularPrecioTotal — price is independent of fecha_evento", () => {
       "2026-12-31T23:59",
       "2027-01-01T00:00",
     ];
-    for (const _ of fechas) {
-      // calcularPrecioTotal has no fecha_evento param — this asserts the
-      // contract that fecha changes cannot silently corrupt pricing.
+    // calcularPrecioTotal has no fecha_evento param — this asserts the
+    // contract that fecha changes cannot silently corrupt pricing.
+    for (let i = 0; i < fechas.length; i++) {
       expect(calcularPrecioTotal(baseParams)).toBe(expectedPrice);
     }
   });

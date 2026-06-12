@@ -10,7 +10,7 @@ import ExportExcel from "./ExportExcel";
 import { formatFecha } from "@/lib/fecha";
 import { formatMoneda } from "@/lib/moneda";
 
-function fmt(n: number) { return formatMoneda(n); }
+const fmt = formatMoneda;
 function fmtDate(s: string | null) {
   return formatFecha(s);
 }

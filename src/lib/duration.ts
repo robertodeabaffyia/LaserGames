@@ -1,3 +1,4 @@
+/** Event duration formatting and bounds (hours + minutes). */
 export const MAX_HORAS = 24;
 export const MAX_MINUTOS = 59;
 

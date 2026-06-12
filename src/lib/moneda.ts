@@ -1,3 +1,7 @@
+/**
+ * Currency display formatting (Argentine pesos). All money shown in the UI,
+ * PDFs and emails goes through formatMoneda; inputs stay as plain numbers.
+ */
 const formatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
   currency: "ARS",

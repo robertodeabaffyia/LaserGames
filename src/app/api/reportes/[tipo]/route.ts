@@ -4,7 +4,7 @@
  * Authentication: required (401 if no session).
  * Authorization:  admin only (403 for supervisor / general).
  *
- * Supported tipos: kpis | resumen | eventos | clientes | empleados | movimientos
+ * Supported tipos: kpis | resumen | eventos | clientes | empleados | movimientos | tendencia
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -27,6 +27,8 @@ import type {
   ClienteRanking,
   EmpleadoStat,
   CategoriaStat,
+  ReporteTendencia,
+  TendenciaMes,
 } from "@/types/reportes";
 
 type Params = { params: Promise<{ tipo: string }> };
@@ -339,6 +341,87 @@ async function handleMovimientos(supabase: any, desde: string, hasta: string): P
   };
 }
 
+/**
+ * Tendencia mensual: aggregates the last `meses` months (default 12, max 24)
+ * of movimientos_caja plus completed-event counts, producing the month-over-
+ * month series and summary stats used for decision-making.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleTendencia(supabase: any, mesesParam: number): Promise<ReporteTendencia> {
+  const numMeses = Math.min(Math.max(mesesParam, 3), 24);
+
+  // Window: first day of (current month - numMeses + 1) … today
+  const now = new Date();
+  const desdeDate = new Date(now.getFullYear(), now.getMonth() - numMeses + 1, 1);
+  const desde = `${desdeDate.getFullYear()}-${String(desdeDate.getMonth() + 1).padStart(2, "0")}-01`;
+
+  const { data: movimientos, error: movErr } = await supabase
+    .from("movimientos_caja")
+    .select("tipo, monto, fecha")
+    .gte("fecha", desde);
+
+  if (movErr) throw new Error(movErr.message);
+
+  const { data: eventos, error: evErr } = await supabase
+    .from("eventos")
+    .select("fecha_evento")
+    .eq("estado", "completado")
+    .gte("fecha_evento", `${desde}T00:00:00`);
+
+  if (evErr) throw new Error(evErr.message);
+
+  // Seed every month in the window so gaps render as zero instead of disappearing
+  const byMes = new Map<string, TendenciaMes>();
+  for (let i = 0; i < numMeses; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - numMeses + 1 + i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    byMes.set(key, { mes: key, ingresos: 0, egresos: 0, ganancia: 0, eventos: 0, ticket_promedio: 0 });
+  }
+
+  for (const m of (movimientos ?? []) as { tipo: string; monto: number; fecha: string }[]) {
+    const key = m.fecha.slice(0, 7);
+    const row = byMes.get(key);
+    if (!row) continue;
+    if (m.tipo === "ingreso") row.ingresos += Number(m.monto);
+    else row.egresos += Number(m.monto);
+  }
+
+  for (const e of (eventos ?? []) as { fecha_evento: string }[]) {
+    const row = byMes.get(e.fecha_evento.slice(0, 7));
+    if (row) row.eventos++;
+  }
+
+  const meses = Array.from(byMes.values());
+  for (const r of meses) {
+    r.ganancia = r.ingresos - r.egresos;
+    r.ticket_promedio = r.eventos > 0 ? r.ingresos / r.eventos : 0;
+  }
+
+  const totalIngresos = meses.reduce((s, m) => s + m.ingresos, 0);
+  const totalGanancia = meses.reduce((s, m) => s + m.ganancia, 0);
+  const mejor = meses.reduce<TendenciaMes | null>(
+    (best, m) => (best === null || m.ganancia > best.ganancia ? m : best),
+    null
+  );
+
+  // MoM variation: last full pair of months in the window
+  const ultimo = meses[meses.length - 1];
+  const anterior = meses[meses.length - 2];
+  const variacion_ingresos_pct =
+    anterior && anterior.ingresos > 0
+      ? ((ultimo.ingresos - anterior.ingresos) / anterior.ingresos) * 100
+      : null;
+
+  return {
+    meses,
+    mejor_mes: mejor && mejor.ganancia !== 0 ? mejor.mes : null,
+    promedio_ingresos: totalIngresos / numMeses,
+    promedio_ganancia: totalGanancia / numMeses,
+    variacion_ingresos_pct,
+    margen_promedio_pct: totalIngresos > 0 ? (totalGanancia / totalIngresos) * 100 : null,
+  };
+}
+
 // ── main handler ──────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest, { params }: Params) {
@@ -359,7 +442,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   }
 
   // ── Tipo validation ───────────────────────────────────────────────────────
-  const VALID_TIPOS = ["kpis", "resumen", "eventos", "clientes", "empleados", "movimientos"];
+  const VALID_TIPOS = ["kpis", "resumen", "eventos", "clientes", "empleados", "movimientos", "tendencia"];
   if (!VALID_TIPOS.includes(tipo)) {
     return NextResponse.json({ error: `Tipo inválido: ${tipo}` }, { status: 400 });
   }
@@ -367,6 +450,11 @@ export async function GET(request: NextRequest, { params }: Params) {
   try {
     if (tipo === "kpis") {
       return NextResponse.json(await handleKpis(supabase));
+    }
+
+    if (tipo === "tendencia") {
+      const meses = parseInt(sp.get("meses") ?? "12", 10);
+      return NextResponse.json(await handleTendencia(supabase, isNaN(meses) ? 12 : meses));
     }
 
     const { desde, hasta } = defaultRange(sp);

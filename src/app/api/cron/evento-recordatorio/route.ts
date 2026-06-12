@@ -2,13 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { renderTemplate, enviarEmail, enviarWhatsApp } from "@/lib/notificaciones";
 import { formatFechaMes, formatHora } from "@/lib/fecha";
-
-function authorizeCron(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // dev mode — allow all
-  const auth = request.headers.get("authorization");
-  return auth === `Bearer ${secret}`;
-}
+import { authorizeCron } from "@/lib/cron-auth";
 
 /**
  * POST /api/cron/evento-recordatorio
@@ -126,3 +120,6 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ enviados, errores, fecha_objetivo: targetStr });
 }
+
+// Vercel Cron invoca con GET; misma lógica que POST (auth via Bearer CRON_SECRET)
+export { POST as GET };

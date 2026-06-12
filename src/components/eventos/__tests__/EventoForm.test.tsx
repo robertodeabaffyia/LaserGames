@@ -1,8 +1,9 @@
 /**
  * EventoForm — precio adicionales sync tests
  *
- * Verifies that EventoForm ALWAYS uses current config prices for niño/adulto
- * adicionales, in both create and edit modes, never stale stored evento prices.
+ * Verifies that EventoForm ALWAYS uses the selected paquete's own prices for
+ * niño/adulto adicionales, in both create and edit modes, never stale stored
+ * evento prices or global config prices.
  */
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -26,13 +27,8 @@ const mockPaquete = {
   duracion_minutos: 0,
   cantidad_ninos_incluidos: 10,
   cantidad_adultos_incluidos: 5,
-};
-
-const mockConfig = {
-  monto_seña: 1000,
   precio_nino_adicional: 250,
   precio_adulto_adicional: 150,
-  tarjeta_recargos: {},
 };
 
 function makeFetch(body: unknown) {
@@ -50,7 +46,6 @@ describe("EventoForm — precio adicionales sync", () => {
     jest.clearAllMocks();
     global.fetch = jest.fn((url: string) => {
       if (url === "/api/paquetes") return makeFetch([mockPaquete]);
-      if (url === "/api/configuracion") return makeFetch(mockConfig);
       // cliente fetch in edit mode
       if (typeof url === "string" && url.startsWith("/api/clientes/"))
         return makeFetch({ id: "cli-1", nombre: "Test Cliente", telefono: null, email: null });
@@ -62,24 +57,19 @@ describe("EventoForm — precio adicionales sync", () => {
     jest.restoreAllMocks();
   });
 
-  it("new mode: loads precioNinoAdicional and precioAdultoAdicional from config", async () => {
+  it("new mode: fetches paquetes on mount", async () => {
     render(<EventoForm onSuccess={noop} onCancel={noop} />);
 
-    // After init() resolves, config prices should be set
-    // The price preview section renders when a package is selected, but we can
-    // verify the fetch was called with the right endpoint.
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith("/api/configuracion");
+      expect(global.fetch).toHaveBeenCalledWith("/api/paquetes");
     });
 
-    // Config must be fetched — not the stored evento field
-    expect(global.fetch).not.toHaveBeenCalledWith(
-      expect.stringMatching(/precio_nino|precio_adulto/)
-    );
+    // Config endpoint is no longer fetched by EventoForm
+    expect(global.fetch).not.toHaveBeenCalledWith("/api/configuracion");
   });
 
-  it("edit mode: uses config prices, ignores stored evento.precio_nino_extra and evento.precio_adulto", async () => {
-    // Evento with stale stored prices that differ from config
+  it("edit mode: uses paquete prices, ignores stored evento.precio_nino_extra and evento.precio_adulto", async () => {
+    // Evento with stale stored prices that differ from the paquete's own prices
     const eventoWithStalePrice: Evento = {
       id: "evt-1",
       cliente_id: "cli-1",
@@ -91,8 +81,8 @@ describe("EventoForm — precio adicionales sync", () => {
       num_invitados: 14,
       cantidad_ninos_totales: 12,  // 2 extras above the 10 included
       cantidad_adultos_totales: 6, // 1 extra above the 5 included
-      precio_nino_extra: 999,      // stale — config has 250
-      precio_adulto: 888,          // stale — config has 150
+      precio_nino_extra: 999,      // stale — paquete has 250
+      precio_adulto: 888,          // stale — paquete has 150
       descuento: 0,
       duracion_horas: 2,
       duracion_minutos: 0,
@@ -112,21 +102,20 @@ describe("EventoForm — precio adicionales sync", () => {
       />
     );
 
-    // Wait for init() to resolve; it fetches config then sets prices from config
+    // Wait for init() to resolve; it fetches paquetes and sets prices from the paquete
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith("/api/configuracion");
+      expect(global.fetch).toHaveBeenCalledWith("/api/paquetes");
     });
 
-    // The component should render the correct breakdown using config prices
-    // (12 niños − 10 incluidos = 2 adicionales × $250 = $500)
+    // The component should render the correct breakdown using paquete prices
+    // (stale values 999 and 888 should NOT appear anywhere)
     await waitFor(() => {
-      // Breakdown line for children shows the config price, NOT the stale 999
       expect(screen.queryByText(/999/)).not.toBeInTheDocument();
       expect(screen.queryByText(/888/)).not.toBeInTheDocument();
     });
   });
 
-  it("edit mode: breakdown uses live config precioNinoAdicional in additional price display", async () => {
+  it("edit mode: breakdown uses paquete's precio_nino_adicional in additional price display", async () => {
     const eventoWithExtras: Evento = {
       id: "evt-2",
       cliente_id: "cli-1",
@@ -159,14 +148,13 @@ describe("EventoForm — precio adicionales sync", () => {
     );
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith("/api/configuracion");
+      expect(global.fetch).toHaveBeenCalledWith("/api/paquetes");
     });
 
-    // With 3 extra niños at $250 each = $750; config price should appear
-    // The breakdown renders only when a paquete is selected AND extras exist
+    // With 3 extra niños at $250 each; paquete's price 250 should appear in the input
+    // The editable input for precio_nino_adicional is pre-filled from the paquete
     await waitFor(() => {
-      // config's 250 should appear somewhere in the rendered output
-      expect(screen.getByText(/250/)).toBeInTheDocument();
+      expect(screen.getByDisplayValue("250")).toBeInTheDocument();
     });
   });
 });

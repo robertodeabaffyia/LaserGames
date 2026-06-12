@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
 import type { HijoUpdate } from "@/types/hijos";
 
 type Params = { params: Promise<{ id: string }> };
@@ -7,6 +8,9 @@ type Params = { params: Promise<{ id: string }> };
 export async function PUT(request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
+
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
 
   let body: HijoUpdate;
   try {
@@ -33,6 +37,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
 export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createClient();
+
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
 
   const { error } = await supabase.from("hijos").delete().eq("id", id);
 

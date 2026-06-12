@@ -5,9 +5,13 @@ import { NextRequest } from "next/server";
 import { GET, PUT, DELETE } from "../route";
 
 const mockFrom = jest.fn();
+const mockGetUser = jest.fn();
+mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
 jest.mock("@/lib/supabase/server", () => ({
-  createClient: jest.fn(() => Promise.resolve({ from: mockFrom })),
+  createClient: jest.fn(() =>
+    Promise.resolve({ from: mockFrom, auth: { getUser: mockGetUser } })
+  ),
 }));
 
 function chain(result: unknown) {

@@ -2,6 +2,7 @@
 
 import type { PaqueteWithItems } from "@/types/paquetes";
 import { formatDuration } from "@/lib/duration";
+import { formatMoneda } from "@/lib/moneda";
 
 interface PackageCardProps {
   paquete: PaqueteWithItems;
@@ -32,7 +33,7 @@ export default function PackageCard({ paquete, onEdit, onDelete }: PackageCardPr
 
       <div className="flex items-center gap-4 text-sm text-gray-400">
         <span className="text-indigo-400 font-bold text-base">
-          ${paquete.precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+          {formatMoneda(paquete.precio)}
         </span>
         <span>{formatDuration(paquete.duracion_horas, paquete.duracion_minutos)}</span>
       </div>

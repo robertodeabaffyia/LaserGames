@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { formatFecha } from "@/lib/fecha";
+import { formatMoneda } from "@/lib/moneda";
 
 interface EventoResumen {
   id: string;
@@ -71,19 +72,19 @@ export default function PagosWidget() {
         <div>
           <p className="text-[11px] text-gray-500">Total</p>
           <p className="text-sm font-semibold text-white">
-            ${(totales?.total_precio ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 0 })}
+            {formatMoneda(totales?.total_precio ?? 0)}
           </p>
         </div>
         <div>
           <p className="text-[11px] text-gray-500">Cobrado</p>
           <p className="text-sm font-semibold text-green-400">
-            ${(totales?.total_pagado ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 0 })}
+            {formatMoneda(totales?.total_pagado ?? 0)}
           </p>
         </div>
         <div>
           <p className="text-[11px] text-gray-500">Pendiente</p>
           <p className="text-sm font-semibold text-yellow-400">
-            ${(totales?.total_pendiente ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 0 })}
+            {formatMoneda(totales?.total_pendiente ?? 0)}
           </p>
         </div>
       </div>
@@ -107,7 +108,7 @@ export default function PagosWidget() {
               <div className="text-right shrink-0 ml-3">
                 {ev.saldo_pendiente > 0 ? (
                   <span className="text-yellow-400">
-                    -${ev.saldo_pendiente.toLocaleString("es-MX")}
+                    -{formatMoneda(ev.saldo_pendiente)}
                   </span>
                 ) : (
                   <span className="text-green-400">✓ pagado</span>

@@ -20,6 +20,10 @@ export interface Paquete {
   cantidad_ninos_incluidos: number;
   /** Adults included in the package price */
   cantidad_adultos_incluidos: number;
+  /** Price per extra child beyond cantidad_ninos_incluidos */
+  precio_nino_adicional: number;
+  /** Price per extra adult beyond cantidad_adultos_incluidos */
+  precio_adulto_adicional: number;
   es_activo: boolean;
   created_at: string;
   updated_at: string;

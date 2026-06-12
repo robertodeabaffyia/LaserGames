@@ -5,9 +5,13 @@ import { NextRequest } from "next/server";
 import { GET, POST } from "../route";
 
 const mockFrom = jest.fn();
+const mockGetUser = jest.fn();
+mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
 jest.mock("@/lib/supabase/server", () => ({
-  createClient: jest.fn(() => Promise.resolve({ from: mockFrom })),
+  createClient: jest.fn(() =>
+    Promise.resolve({ from: mockFrom, auth: { getUser: mockGetUser } })
+  ),
 }));
 
 // Builds a Supabase-like thenable chain where every method returns itself.
@@ -39,6 +43,8 @@ const mockPaquete = {
   duracion_minutos: 0,
   cantidad_ninos_incluidos: 10,
   cantidad_adultos_incluidos: 4,
+  precio_nino_adicional: 200,
+  precio_adulto_adicional: 100,
   es_activo: true,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",

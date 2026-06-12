@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
 
 export async function GET() {
   const supabase = await createClient();
+
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
 
   const { data, error } = await supabase
     .from("eventos")

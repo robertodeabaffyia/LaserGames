@@ -1,9 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
 
 /** GET — list notification history with optional filters */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
+
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
+
   const { searchParams } = new URL(request.url);
 
   const tipo   = searchParams.get("tipo");

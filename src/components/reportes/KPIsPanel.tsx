@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import KPICard from "./KPICard";
 import type { KPIs } from "@/types/reportes";
+import { formatMoneda } from "@/lib/moneda";
 
 function fmt(n: number) {
-  return `$${n.toLocaleString("es-MX", { minimumFractionDigits: 0 })}`;
+  return formatMoneda(n);
 }
 
 export default function KPIsPanel() {

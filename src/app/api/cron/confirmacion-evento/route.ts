@@ -2,12 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { renderTemplate, enviarEmail, enviarWhatsApp } from "@/lib/notificaciones";
 import { formatFechaMes } from "@/lib/fecha";
-
-function authorizeCron(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
+import { formatMoneda } from "@/lib/moneda";
+import { authorizeCron } from "@/lib/cron-auth";
 
 /**
  * POST /api/cron/confirmacion-evento
@@ -82,8 +78,8 @@ export async function POST(request: NextRequest) {
       nombre_cliente: cliente.nombre,
       nombre_festejado: ev.nombre_festejado,
       fecha_evento: formatFechaMes(fechaEvento),
-      monto_pagado: totalPagado.toLocaleString("es-MX", { minimumFractionDigits: 2 }),
-      saldo_pendiente: saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 }),
+      monto_pagado: formatMoneda(totalPagado),
+      saldo_pendiente: formatMoneda(saldoPendiente),
     };
 
     const contenido = renderTemplate(config.contenido_template, vars);
@@ -123,3 +119,6 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ enviados, errores });
 }
+
+// Vercel Cron invoca con GET; misma lógica que POST (auth via Bearer CRON_SECRET)
+export { POST as GET };

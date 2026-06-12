@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
 
 const ACTIVE_ESTADOS = ["pendiente", "cotizacion", "confirmado", "en_curso"];
 
 /** GET — summary of payment status across active events */
 export async function GET() {
   const supabase = await createClient();
+
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
 
   // Fetch active eventos with their pagos
   const { data: eventos, error } = await supabase

@@ -1,12 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { renderTemplate, enviarEmail, enviarWhatsApp } from "@/lib/notificaciones";
-
-function authorizeCron(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
+import { authorizeCron } from "@/lib/cron-auth";
 
 function birthdayMatchesDate(fecha: string, target: Date): boolean {
   const parts = fecha.split("-");
@@ -136,3 +131,6 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ enviados, errores, fecha_objetivo: targetDate.toISOString().split("T")[0] });
 }
+
+// Vercel Cron invoca con GET; misma lógica que POST (auth via Bearer CRON_SECRET)
+export { POST as GET };

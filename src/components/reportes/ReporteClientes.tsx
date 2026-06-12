@@ -8,8 +8,9 @@ import PeriodoPicker from "./PeriodoPicker";
 import ExportPDF from "./ExportPDF";
 import ExportExcel from "./ExportExcel";
 import { formatFecha } from "@/lib/fecha";
+import { formatMoneda } from "@/lib/moneda";
 
-function fmt(n: number) { return `$${n.toLocaleString("es-MX", { maximumFractionDigits: 0 })}`; }
+function fmt(n: number) { return formatMoneda(n); }
 function fmtDate(s: string | null) {
   return formatFecha(s);
 }

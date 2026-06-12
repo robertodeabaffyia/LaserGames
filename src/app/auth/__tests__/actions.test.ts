@@ -1,7 +1,6 @@
-import { signIn, signUp, signOut } from "../actions";
+import { signIn, signOut } from "../actions";
 
 const mockSignInWithPassword = jest.fn();
-const mockSignUp = jest.fn();
 const mockSignOut = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -9,7 +8,6 @@ jest.mock("@/lib/supabase/server", () => ({
     Promise.resolve({
       auth: {
         signInWithPassword: mockSignInWithPassword,
-        signUp: mockSignUp,
         signOut: mockSignOut,
       },
     })
@@ -67,39 +65,6 @@ describe("signIn", () => {
 
     expect(mockRedirect).toHaveBeenCalledWith(
       "/login?error=Invalid%20credentials"
-    );
-    expect(mockRevalidatePath).not.toHaveBeenCalled();
-  });
-});
-
-describe("signUp", () => {
-  it("redirects to /login with confirmation message on success", async () => {
-    mockSignUp.mockResolvedValue({ error: null });
-
-    await expect(
-      signUp(makeFormData({ email: "new@test.com", password: "password123" }))
-    ).rejects.toThrow("NEXT_REDIRECT");
-
-    expect(mockSignUp).toHaveBeenCalledWith({
-      email: "new@test.com",
-      password: "password123",
-    });
-    expect(mockRedirect).toHaveBeenCalledWith(
-      "/login?message=Check your email to confirm your account"
-    );
-  });
-
-  it("redirects to /signup with encoded error on failure", async () => {
-    mockSignUp.mockResolvedValue({
-      error: { message: "User already registered" },
-    });
-
-    await expect(
-      signUp(makeFormData({ email: "existing@test.com", password: "pass" }))
-    ).rejects.toThrow("NEXT_REDIRECT");
-
-    expect(mockRedirect).toHaveBeenCalledWith(
-      "/signup?error=User%20already%20registered"
     );
     expect(mockRevalidatePath).not.toHaveBeenCalled();
   });

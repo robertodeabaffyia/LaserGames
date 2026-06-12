@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { MovimientoCaja, MovimientoCategoria } from "@/types/caja";
 import { MOVIMIENTO_CATEGORIAS } from "@/types/caja";
 import { formatearHoras } from "@/lib/registros-horas";
+import { formatMoneda } from "@/lib/moneda";
 
 const CATEGORIA_LABELS: Record<MovimientoCategoria, string> = {
   pago_evento: "Pago evento",
@@ -84,13 +85,10 @@ export default function FlujoCaja() {
     doc.text(`Flujo de Caja — ${mes}`, 14, 20);
 
     doc.setFontSize(11);
-    doc.text(`Ingresos: $${totalIngresos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`, 14, 32);
-    doc.text(`Egresos:  $${totalEgresos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`, 14, 39);
+    doc.text(`Ingresos: ${formatMoneda(totalIngresos)}`, 14, 32);
+    doc.text(`Egresos:  ${formatMoneda(totalEgresos)}`, 14, 39);
     doc.setFont("helvetica", "bold");
-    doc.text(
-      `Ganancia neta: $${gananciaNeta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
-      14, 46
-    );
+    doc.text(`Ganancia neta: ${formatMoneda(gananciaNeta)}`, 14, 46);
     doc.setFont("helvetica", "normal");
 
     let y = 58;
@@ -111,7 +109,7 @@ export default function FlujoCaja() {
       doc.text(CATEGORIA_LABELS[m.categoria], 62, y);
       doc.text(m.descripcion.slice(0, 35), 100, y);
       const prefix = m.tipo === "egreso" ? "-" : "+";
-      doc.text(`${prefix}$${Number(m.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`, 170, y);
+      doc.text(`${prefix}${formatMoneda(Number(m.monto))}`, 170, y);
       y += 6;
     }
 
@@ -204,14 +202,14 @@ export default function FlujoCaja() {
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4">
           <p className="text-xs text-gray-400 mb-1">Total ingresos</p>
           <p className="text-xl font-bold text-green-400">
-            ${totalIngresos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            {formatMoneda(totalIngresos)}
           </p>
           <p className="text-xs text-gray-500 mt-1">{ingresos.length} movimientos</p>
         </div>
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4">
           <p className="text-xs text-gray-400 mb-1">Total egresos</p>
           <p className="text-xl font-bold text-red-400">
-            ${totalEgresos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            {formatMoneda(totalEgresos)}
           </p>
           <p className="text-xs text-gray-500 mt-1">{egresos.length} movimientos</p>
         </div>
@@ -222,8 +220,7 @@ export default function FlujoCaja() {
         }`}>
           <p className="text-xs text-gray-400 mb-1">Ganancia neta</p>
           <p className={`text-xl font-bold ${gananciaNeta >= 0 ? "text-green-400" : "text-red-400"}`}>
-            {gananciaNeta < 0 ? "−" : ""}$
-            {Math.abs(gananciaNeta).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            {gananciaNeta < 0 ? "−" : ""}{formatMoneda(Math.abs(gananciaNeta))}
           </p>
           <p className="text-xs text-gray-500 mt-1">
             {gananciaNeta >= 0 ? "Superávit" : "Déficit"}
@@ -254,15 +251,13 @@ export default function FlujoCaja() {
                     <td className="py-2 text-white">{r.nombre}</td>
                     <td className="py-2 text-right text-gray-400">{formatearHoras(r.horas)}</td>
                     <td className="py-2 text-right text-gray-300">
-                      ${r.total_salario.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      {formatMoneda(r.total_salario)}
                     </td>
                     <td className="py-2 text-right text-yellow-400">
-                      {r.total_bonos > 0
-                        ? `$${r.total_bonos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
-                        : "—"}
+                      {r.total_bonos > 0 ? formatMoneda(r.total_bonos) : "—"}
                     </td>
                     <td className="py-2 text-right font-semibold text-red-400">
-                      ${r.total_egreso.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      {formatMoneda(r.total_egreso)}
                     </td>
                   </tr>
                 ))}
@@ -305,8 +300,7 @@ export default function FlujoCaja() {
                   <td className={`px-4 py-3 text-right font-semibold ${
                     m.tipo === "ingreso" ? "text-green-400" : "text-red-400"
                   }`}>
-                    {m.tipo === "egreso" ? "−" : "+"}$
-                    {Number(m.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    {m.tipo === "egreso" ? "−" : "+"}{formatMoneda(Number(m.monto))}
                   </td>
                 </tr>
               ))}
@@ -315,8 +309,7 @@ export default function FlujoCaja() {
               <tr className="text-xs text-gray-400 font-semibold">
                 <td className="px-4 py-2" colSpan={4}>Ganancia neta del período</td>
                 <td className={`px-4 py-2 text-right ${gananciaNeta >= 0 ? "text-green-400" : "text-red-400"}`}>
-                  {gananciaNeta < 0 ? "−" : "+"}$
-                  {Math.abs(gananciaNeta).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  {gananciaNeta < 0 ? "−" : "+"}{formatMoneda(Math.abs(gananciaNeta))}
                 </td>
               </tr>
             </tfoot>

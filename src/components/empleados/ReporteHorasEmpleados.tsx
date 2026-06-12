@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatearHoras } from "@/lib/registros-horas";
+import { formatMoneda } from "@/lib/moneda";
 import type { RegistroHorasConEmpleado, ResumenHorasEmpleado } from "@/types/empleados";
 
 export default function ReporteHorasEmpleados() {
@@ -99,7 +100,7 @@ export default function ReporteHorasEmpleados() {
       doc.text(e.rol, 70, y);
       doc.text(String(e.total_dias), 110, y);
       doc.text(formatearHoras(e.total_horas), 130, y);
-      doc.text(e.total_costo > 0 ? `$${e.total_costo.toLocaleString("es-MX")}` : "—", 155, y);
+      doc.text(e.total_costo > 0 ? formatMoneda(e.total_costo) : "—", 155, y);
       y += 6;
     }
 
@@ -168,7 +169,7 @@ export default function ReporteHorasEmpleados() {
                       </td>
                       <td className="px-4 py-3 text-right text-green-400">
                         {e.total_costo > 0
-                          ? `$${e.total_costo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+                          ? formatMoneda(e.total_costo)
                           : "—"}
                       </td>
                     </tr>
@@ -180,7 +181,7 @@ export default function ReporteHorasEmpleados() {
                     <td className="px-4 py-2 text-right text-white">{formatearHoras(totalHoras)}</td>
                     <td className="px-4 py-2 text-right text-green-400">
                       {totalCosto > 0
-                        ? `$${totalCosto.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+                        ? formatMoneda(totalCosto)
                         : "—"}
                     </td>
                   </tr>

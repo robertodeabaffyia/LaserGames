@@ -1,9 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
 import type { HijoInsert } from "@/types/hijos";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
+
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
 
   let body: HijoInsert;
   try {

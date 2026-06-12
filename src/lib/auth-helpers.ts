@@ -25,8 +25,8 @@ export function hasMinRole(
  * Fetches the authenticated user's role from the `usuarios` table.
  * Returns null when the row doesn't exist or a DB error occurs.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getUserRol(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   userId: string
 ): Promise<UsuarioRol | null> {
@@ -41,6 +41,20 @@ export async function getUserRol(
 /** Returns a 401 Unauthorized JSON response. */
 export function unauthorizedResponse(): NextResponse {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+
+/**
+ * Returns the authenticated user or null. Route handlers should respond with
+ * unauthorizedResponse() when this returns null — every API route must check
+ * auth itself (defense in depth: proxy.ts also guards, but routes must not
+ * rely on it).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function requireUser(supabase: any): Promise<{ id: string } | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user ?? null;
 }
 
 /** Returns a 403 Forbidden JSON response. */

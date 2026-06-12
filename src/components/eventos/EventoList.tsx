@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { EVENTO_ESTADOS, type EventoEstado, type EventoConRelaciones } from "@/types/eventos";
+import { formatMoneda } from "@/lib/moneda";
+import { formatFechaHora } from "@/lib/fecha";
 
 const ESTADO_COLORS: Record<EventoEstado, string> = {
   pendiente: "bg-yellow-900/40 text-yellow-300 border-yellow-700",
@@ -134,13 +136,7 @@ export default function EventoList({ onDelete, refreshKey }: EventoListProps) {
               {eventos.map((ev) => (
                 <tr key={ev.id} className="hover:bg-gray-800/40 transition-colors">
                   <td className="px-4 py-3 text-gray-200">
-                    {new Date(ev.fecha_evento).toLocaleString("es-MX", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatFechaHora(ev.fecha_evento)}
                   </td>
                   <td className="px-4 py-3 font-medium text-white">{ev.nombre_festejado}</td>
                   <td className="px-4 py-3 text-gray-300">{ev.cliente?.nombre ?? "—"}</td>
@@ -153,7 +149,7 @@ export default function EventoList({ onDelete, refreshKey }: EventoListProps) {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-white">
-                    ${ev.precio_total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    {formatMoneda(ev.precio_total)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">

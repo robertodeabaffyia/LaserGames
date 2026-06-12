@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { Empleado } from "@/types/empleados";
 import type { BonoEmpleado } from "@/types/caja";
+import { formatMoneda } from "@/lib/moneda";
 
 interface BonoPagoProps {
   onBonoPagado?: () => void;
@@ -92,7 +93,7 @@ export default function BonoPago({ onBonoPagado }: BonoPagoProps) {
           />
           {bonos.length > 0 && (
             <span className="text-xs text-yellow-400 font-medium">
-              Total bonos: ${totalBonos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              Total bonos: {formatMoneda(totalBonos)}
             </span>
           )}
         </div>
@@ -212,7 +213,7 @@ export default function BonoPago({ onBonoPagado }: BonoPagoProps) {
                   <td className="px-4 py-3 text-gray-400">{b.mes}</td>
                   <td className="px-4 py-3 text-gray-400">{b.descripcion ?? "—"}</td>
                   <td className="px-4 py-3 text-right text-yellow-400 font-semibold">
-                    ${Number(b.monto_bono).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    {formatMoneda(Number(b.monto_bono))}
                   </td>
                 </tr>
               ))}

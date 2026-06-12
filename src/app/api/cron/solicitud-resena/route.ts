@@ -1,12 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { renderTemplate, enviarEmail, enviarWhatsApp } from "@/lib/notificaciones";
-
-function authorizeCron(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // dev mode — allow all
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
+import { authorizeCron } from "@/lib/cron-auth";
 
 /**
  * POST /api/cron/solicitud-resena
@@ -156,3 +151,6 @@ export async function POST(request: NextRequest) {
     fecha_objetivo: targetStr,
   });
 }
+
+// Vercel Cron invoca con GET; misma lógica que POST (auth via Bearer CRON_SECRET)
+export { POST as GET };

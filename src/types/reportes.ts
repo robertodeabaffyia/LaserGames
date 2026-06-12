@@ -83,4 +83,36 @@ export interface ReporteMovimientos {
   por_categoria: CategoriaStat[];
 }
 
-export type ReporteTipo = "kpis" | "resumen" | "eventos" | "clientes" | "empleados" | "movimientos";
+/** One month of aggregated business activity (used by the tendencia report). */
+export interface TendenciaMes {
+  mes: string; // YYYY-MM
+  ingresos: number;
+  egresos: number;
+  ganancia: number;
+  eventos: number; // completed events in the month
+  ticket_promedio: number; // ingresos / eventos (0 when no events)
+}
+
+/**
+ * Month-over-month trend over the last N months. Designed for decision-making:
+ * seasonality, growth direction, and per-event revenue at a glance.
+ */
+export interface ReporteTendencia {
+  meses: TendenciaMes[];
+  mejor_mes: string | null; // YYYY-MM with the highest ganancia
+  promedio_ingresos: number; // monthly average over the window
+  promedio_ganancia: number;
+  /** % change of last month's ingresos vs the previous month (null if not computable) */
+  variacion_ingresos_pct: number | null;
+  /** Average profit margin: ganancia / ingresos over the whole window (null if no income) */
+  margen_promedio_pct: number | null;
+}
+
+export type ReporteTipo =
+  | "kpis"
+  | "resumen"
+  | "eventos"
+  | "clientes"
+  | "empleados"
+  | "movimientos"
+  | "tendencia";

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 
 // Dynamic imports — all use Recharts (client-only)
 const ReporteSummary    = dynamic(() => import("@/components/reportes/ReporteSummary"),    { ssr: false, loading: () => <Skeleton /> });
+const ReporteTendencia  = dynamic(() => import("@/components/reportes/ReporteTendencia"),  { ssr: false, loading: () => <Skeleton /> });
 const ReporteEventos    = dynamic(() => import("@/components/reportes/ReporteEventos"),    { ssr: false, loading: () => <Skeleton /> });
 const ReporteClientes   = dynamic(() => import("@/components/reportes/ReporteClientes"),   { ssr: false, loading: () => <Skeleton /> });
 const ReporteEmpleados  = dynamic(() => import("@/components/reportes/ReporteEmpleados"),  { ssr: false, loading: () => <Skeleton /> });
@@ -14,10 +15,11 @@ function Skeleton() {
   return <div className="h-64 rounded-xl border border-gray-800 animate-pulse bg-gray-900/30" />;
 }
 
-type Tab = "resumen" | "eventos" | "clientes" | "empleados" | "movimientos";
+type Tab = "resumen" | "tendencia" | "eventos" | "clientes" | "empleados" | "movimientos";
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "resumen",      label: "Resumen",     icon: "📊" },
+  { key: "tendencia",    label: "Tendencia",   icon: "📈" },
   { key: "eventos",      label: "Eventos",     icon: "🎉" },
   { key: "clientes",     label: "Clientes",    icon: "👥" },
   { key: "empleados",    label: "Empleados",   icon: "👤" },
@@ -53,6 +55,7 @@ export default function ReportesPage() {
       {/* Content */}
       <div>
         {tab === "resumen"      && <ReporteSummary />}
+        {tab === "tendencia"    && <ReporteTendencia />}
         {tab === "eventos"      && <ReporteEventos />}
         {tab === "clientes"     && <ReporteClientes />}
         {tab === "empleados"    && <ReporteEmpleados />}

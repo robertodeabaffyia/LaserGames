@@ -151,6 +151,11 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   } = await supabase.auth.getUser();
   if (!user) return unauthorizedResponse();
 
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) {
+    return forbiddenResponse("Solo supervisores o administradores pueden eliminar eventos");
+  }
+
   const { error } = await supabase.from("eventos").delete().eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

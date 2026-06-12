@@ -12,6 +12,15 @@ jest.mock("@/lib/supabase/server", () => ({
   ),
 }));
 
+// Mock auth-helpers so role checks pass without touching the DB
+jest.mock("@/lib/auth-helpers", () => {
+  const actual = jest.requireActual("@/lib/auth-helpers");
+  return {
+    ...actual,
+    getUserRol: jest.fn().mockResolvedValue("admin"),
+  };
+});
+
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c: any = {};
@@ -63,6 +72,15 @@ describe("PUT /api/pagos/[id]", () => {
 
     const res = await PUT(req("PUT", { notas: "ref-123" }), params);
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when user is general (editing pagos is supervisor+)", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("general");
+
+    const res = await PUT(req("PUT", { notas: "ref-123" }), params);
+    expect(res.status).toBe(403);
   });
 
   it("returns 404 when pago not found", async () => {

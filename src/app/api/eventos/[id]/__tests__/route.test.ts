@@ -255,8 +255,17 @@ describe("DELETE /api/eventos/[id]", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 204 on success", async () => {
-    mockFrom.mockReturnValue(chain({ data: null, error: null }));
+  it("returns 403 when user is general", async () => {
+    mockFrom.mockReturnValueOnce(chain({ data: { rol: "general" }, error: null })); // usuarios
+
+    const res = await DELETE(req("DELETE"), params);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 204 on success for supervisor", async () => {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { rol: "supervisor" }, error: null })) // usuarios
+      .mockReturnValue(chain({ data: null, error: null }));
 
     const res = await DELETE(req("DELETE"), params);
     expect(res.status).toBe(204);
@@ -264,7 +273,9 @@ describe("DELETE /api/eventos/[id]", () => {
   });
 
   it("returns 400 on DB error", async () => {
-    mockFrom.mockReturnValue(chain({ data: null, error: { message: "FK constraint" } }));
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { rol: "supervisor" }, error: null })) // usuarios
+      .mockReturnValue(chain({ data: null, error: { message: "FK constraint" } }));
 
     const res = await DELETE(req("DELETE"), params);
     expect(res.status).toBe(400);

@@ -1,6 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
+import {
+  requireUser,
+  unauthorizedResponse,
+  forbiddenResponse,
+  getUserRol,
+  hasMinRole,
+} from "@/lib/auth-helpers";
+
+const FORBIDDEN_MSG = "Solo administradores pueden modificar el catálogo de items";
 import type { ItemUpdate } from "@/types/items";
 
 type Params = { params: Promise<{ id: string }> };
@@ -33,6 +41,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
   const user = await requireUser(supabase);
   if (!user) return unauthorizedResponse();
 
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "admin")) return forbiddenResponse(FORBIDDEN_MSG);
+
   let body: ItemUpdate;
   try {
     body = await request.json();
@@ -61,6 +72,9 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
   const user = await requireUser(supabase);
   if (!user) return unauthorizedResponse();
+
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "admin")) return forbiddenResponse(FORBIDDEN_MSG);
 
   const { error } = await supabase.from("items").delete().eq("id", id);
 

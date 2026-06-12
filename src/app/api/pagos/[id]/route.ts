@@ -1,9 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getUserRol, hasMinRole, forbiddenResponse } from "@/lib/auth-helpers";
 import type { PagoUpdate } from "@/types/pagos";
 import type { TarjetaRecargos } from "@/types/configuracion";
 
 type Params = { params: Promise<{ id: string }> };
+
+const FORBIDDEN_MSG =
+  "Solo supervisores o administradores pueden modificar pagos registrados";
 
 // ── PUT /api/pagos/[id] ───────────────────────────────────────────────────────
 // Allows editing: notas, quien_recibio, fecha_pago, monto, metodo.
@@ -21,6 +25,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) return forbiddenResponse(FORBIDDEN_MSG);
 
   let body: PagoUpdate;
   try {
@@ -152,6 +159,9 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "supervisor")) return forbiddenResponse(FORBIDDEN_MSG);
 
   // Verify pago exists before deleting
   const { data: pago, error: fetchError } = await supabase

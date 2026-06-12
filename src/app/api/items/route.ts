@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
+import {
+  requireUser,
+  unauthorizedResponse,
+  forbiddenResponse,
+  getUserRol,
+  hasMinRole,
+} from "@/lib/auth-helpers";
 import type { ItemInsert } from "@/types/items";
 
 export async function GET() {
@@ -23,6 +29,11 @@ export async function POST(request: NextRequest) {
 
   const user = await requireUser(supabase);
   if (!user) return unauthorizedResponse();
+
+  const rol = await getUserRol(supabase, user.id);
+  if (!hasMinRole(rol, "admin")) {
+    return forbiddenResponse("Solo administradores pueden modificar el catálogo de items");
+  }
 
   let body: ItemInsert;
   try {

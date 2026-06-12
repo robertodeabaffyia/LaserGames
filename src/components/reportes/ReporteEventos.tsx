@@ -15,7 +15,7 @@ import ExportExcel from "./ExportExcel";
 import { formatMoneda } from "@/lib/moneda";
 
 const COLORS = ["#818cf8", "#4ade80", "#fbbf24", "#f87171", "#34d399", "#a78bfa"];
-function fmt(n: number) { return formatMoneda(n); }
+const fmt = formatMoneda;
 
 export default function ReporteEventos() {
   const [periodo, setPeriodo] = useState<Periodo>("mes");

@@ -1,3 +1,7 @@
+/**
+ * Birthday proximity helpers for dashboard widgets and the cumpleanos cron:
+ * days-until-next-birthday math and week/month bucketing.
+ */
 export interface BirthdayEntry {
   id: string;
   nombre: string;

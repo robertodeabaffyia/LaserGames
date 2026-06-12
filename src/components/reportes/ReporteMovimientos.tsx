@@ -13,21 +13,12 @@ import PeriodoPicker from "./PeriodoPicker";
 import ExportPDF from "./ExportPDF";
 import ExportExcel from "./ExportExcel";
 import { formatMoneda } from "@/lib/moneda";
+import { categoriaLabel } from "@/types/caja";
 
 const COLORS_ING = ["#4ade80", "#34d399", "#6ee7b7"];
 const COLORS_EGR = ["#f87171", "#fb923c", "#fbbf24", "#a78bfa", "#f472b6", "#94a3b8"];
 
-function fmt(n: number) { return formatMoneda(n); }
-
-const CATEGORIA_LABELS: Record<string, string> = {
-  pago_evento:   "Pago evento",
-  salario:       "Salarios",
-  bono:          "Bonos",
-  compras:       "Compras",
-  servicios:     "Servicios",
-  mantenimiento: "Mantenimiento",
-  otros:         "Otros",
-};
+const fmt = formatMoneda;
 
 export default function ReporteMovimientos() {
   const [periodo, setPeriodo] = useState<Periodo>("mes");
@@ -48,14 +39,14 @@ export default function ReporteMovimientos() {
   const egresosCats  = (data?.por_categoria ?? []).filter((c) => c.tipo === "egreso");
 
   const barData = (data?.por_categoria ?? []).map((c) => ({
-    name: CATEGORIA_LABELS[c.categoria] ?? c.categoria,
+    name: categoriaLabel(c.categoria),
     Total: c.total,
     tipo: c.tipo,
   }));
 
   const exportRows = (data?.por_categoria ?? []).map((c) => ({
     Tipo: c.tipo,
-    Categoría: CATEGORIA_LABELS[c.categoria] ?? c.categoria,
+    Categoría: categoriaLabel(c.categoria),
     Total: c.total,
   }));
 
@@ -120,7 +111,7 @@ export default function ReporteMovimientos() {
               <p className="text-xs text-green-400 mb-3 font-medium uppercase tracking-wider">Ingresos por categoría</p>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
-                  <Pie data={ingresosCats.map((c) => ({ name: CATEGORIA_LABELS[c.categoria] ?? c.categoria, value: c.total }))}
+                  <Pie data={ingresosCats.map((c) => ({ name: categoriaLabel(c.categoria), value: c.total }))}
                     cx="50%" cy="50%" outerRadius={75} dataKey="value"
                     label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                     labelLine={false}>
@@ -135,7 +126,7 @@ export default function ReporteMovimientos() {
               <p className="text-xs text-red-400 mb-3 font-medium uppercase tracking-wider">Egresos por categoría</p>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
-                  <Pie data={egresosCats.map((c) => ({ name: CATEGORIA_LABELS[c.categoria] ?? c.categoria, value: c.total }))}
+                  <Pie data={egresosCats.map((c) => ({ name: categoriaLabel(c.categoria), value: c.total }))}
                     cx="50%" cy="50%" outerRadius={75} dataKey="value"
                     label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                     labelLine={false}>

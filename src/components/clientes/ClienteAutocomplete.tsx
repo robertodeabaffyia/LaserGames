@@ -249,7 +249,7 @@ export default function ClienteAutocomplete({
                 onMouseEnter={() => setActiveIndex(results.length)}
               >
                 + Crear cliente
-                {query && <span className="ml-1 font-medium">"{query}"</span>}
+                {query && <span className="ml-1 font-medium">{`"${query}"`}</span>}
               </button>
             </div>
           </div>

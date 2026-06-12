@@ -29,9 +29,7 @@ const ACCION_LABELS: Record<string, string> = {
   eliminar: "Eliminado",
 };
 
-function fmtCurrency(n: number) {
-  return formatMoneda(n);
-}
+const fmtCurrency = formatMoneda;
 
 function fmtDate(iso: string) {
   return formatFechaHora(iso);

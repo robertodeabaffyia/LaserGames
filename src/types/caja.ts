@@ -26,6 +26,22 @@ export const CATEGORIAS_MANUALES: MovimientoCategoria[] = [
   "otros",
 ];
 
+/** Human-readable labels for UI display — single source for every component. */
+export const CATEGORIA_LABELS: Record<MovimientoCategoria, string> = {
+  pago_evento: "Pago evento",
+  salario: "Salario",
+  bono: "Bono",
+  compras: "Compras",
+  servicios: "Servicios",
+  mantenimiento: "Mantenimiento",
+  otros: "Otros",
+};
+
+/** Label for a categoria coming from untyped sources (API rows); falls back to the raw value. */
+export function categoriaLabel(categoria: string): string {
+  return CATEGORIA_LABELS[categoria as MovimientoCategoria] ?? categoria;
+}
+
 export type FrecuenciaRepeticion = "mensual" | "semanal";
 
 export interface MovimientoCaja {

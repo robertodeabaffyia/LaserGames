@@ -1,3 +1,8 @@
+/**
+ * Event pricing and scheduling logic shared by EventoForm (preview) and the
+ * eventos API (persistence) — both MUST use calcularPrecioTotal so the price
+ * the user sees is exactly what gets saved.
+ */
 export interface PrecioParams {
   precioPaquete: number;
   /** Total children attending the event */

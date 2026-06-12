@@ -1,3 +1,4 @@
+/** Client-side pagination helpers for list views. */
 export const PAGE_SIZE = 10;
 
 /** Returns the slice of `items` for the given 1-based `page`. */

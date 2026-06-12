@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * API routes that bypass session validation (handle their own auth or are public):
@@ -15,6 +16,20 @@ const API_EXEMPT_PREFIXES = [
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ── Rate limiting ────────────────────────────────────────────────────────
+  // Strict limit on login POST (server action invocations): 5 req/60 s per IP.
+  // Cron routes are excluded (Vercel-invoked, not user-facing).
+  if (pathname === "/login" && request.method === "POST") {
+    const limited = await checkRateLimit("strict", request);
+    if (limited) return limited;
+  }
+
+  // General limit on all API routes except cron (already auth-gated separately).
+  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/cron/")) {
+    const limited = await checkRateLimit("general", request);
+    if (limited) return limited;
+  }
 
   // Let exempt API routes through without touching the session
   if (API_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {

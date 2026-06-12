@@ -80,11 +80,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </Link>
       </p>
 
-      <p className="mt-3 text-center text-sm text-gray-500">
-        ¿No tienes cuenta?{" "}
-        <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 font-medium">
-          Regístrate
-        </Link>
+      <p className="mt-3 text-center text-sm text-gray-600">
+        ¿Necesitas una cuenta? Contacta al administrador.
       </p>
     </div>
   );

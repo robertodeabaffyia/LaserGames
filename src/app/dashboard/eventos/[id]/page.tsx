@@ -10,6 +10,8 @@ import type { Pago } from "@/types/pagos";
 import { montoEfectivo, calcularEstadoPago } from "@/types/pagos";
 import { formatDuration } from "@/lib/duration";
 import { formatFecha, formatFechaHora, formatHora } from "@/lib/fecha";
+import { formatMoneda } from "@/lib/moneda";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 
 // ── Colour maps ────────────────────────────────────────────────────────────────
 
@@ -96,6 +98,13 @@ export default function EventoDetailPage() {
   const saldo = Math.max(0, evento.precio_total - totalPagado);
   const estadoPago = calcularEstadoPago(totalPagado, evento.precio_total, montoSena);
 
+  // WhatsApp click-to-chat with a pre-filled event summary
+  const waMensaje =
+    `¡Hola ${evento.cliente?.nombre ?? ""}! Te escribimos de Laser Games por el evento de ` +
+    `${evento.nombre_festejado} (${formatFechaHora(evento.fecha_evento)}).` +
+    (saldo > 0 ? ` Saldo pendiente: ${formatMoneda(saldo)}.` : "");
+  const waLink = buildWhatsAppLink(evento.cliente?.telefono, waMensaje);
+
   return (
     <div className="max-w-4xl space-y-6">
       {/* Back */}
@@ -126,6 +135,17 @@ export default function EventoDetailPage() {
           >
             {evento.estado.replace("_", " ")}
           </span>
+          {waLink && (
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg bg-green-700 hover:bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors"
+              title={`Escribir a ${evento.cliente?.nombre} por WhatsApp`}
+            >
+              💬 WhatsApp
+            </a>
+          )}
           <button
             onClick={() => setShowEditModal(true)}
             className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition-colors"
@@ -226,14 +246,14 @@ export default function EventoDetailPage() {
             <div>
               <dt className="text-xs text-gray-500">Precio total</dt>
               <dd className="text-white font-bold mt-0.5">
-                ${evento.precio_total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                {formatMoneda(evento.precio_total)}
               </dd>
             </div>
             {evento.descuento > 0 && (
               <div>
                 <dt className="text-xs text-gray-500">Descuento</dt>
                 <dd className="text-green-400 font-medium mt-0.5">
-                  -${evento.descuento.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  -{formatMoneda(evento.descuento)}
                 </dd>
               </div>
             )}
@@ -255,13 +275,13 @@ export default function EventoDetailPage() {
               <div>
                 <dt className="text-xs text-gray-500">Total pagado</dt>
                 <dd className="text-white font-bold mt-0.5">
-                  ${totalPagado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  {formatMoneda(totalPagado)}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-500">Saldo pendiente</dt>
                 <dd className={`font-bold mt-0.5 ${saldo > 0 ? "text-red-400" : "text-green-400"}`}>
-                  ${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  {formatMoneda(saldo)}
                 </dd>
               </div>
             </div>
@@ -280,7 +300,7 @@ export default function EventoDetailPage() {
                     </span>
                     <span className="text-xs text-gray-500 capitalize">{p.metodo}</span>
                     <span className="text-white font-medium">
-                      ${montoEfectivo(p).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      {formatMoneda(montoEfectivo(p))}
                     </span>
                   </li>
                 ))}
@@ -297,7 +317,7 @@ export default function EventoDetailPage() {
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-400">
               {saldo > 0
-                ? `Saldo pendiente: ${saldo.toLocaleString("es-MX", { style: "currency", currency: "MXN" })}`
+                ? `Saldo pendiente: ${formatMoneda(saldo)}`
                 : "Evento completamente pagado"}
             </p>
             {saldo > 0 && (
@@ -316,6 +336,8 @@ export default function EventoDetailPage() {
             montoSena={montoSena}
             onDelete={handleDeletePago}
             onEdited={loadEvento}
+            eventoNombre={evento.nombre_festejado}
+            eventoFecha={evento.fecha_evento}
           />
         </div>
       )}

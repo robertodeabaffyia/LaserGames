@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
 import * as XLSX from "xlsx";
 
 /**
@@ -7,6 +8,10 @@ import * as XLSX from "xlsx";
  * Monthly report of hours worked for all active employees.
  */
 export async function GET(request: NextRequest) {
+  const authSupabase = await createClient();
+  const user = await requireUser(authSupabase);
+  if (!user) return unauthorizedResponse();
+
   const { searchParams } = new URL(request.url);
   const mes = searchParams.get("mes"); // e.g. "2026-06"
   const formato = searchParams.get("formato") ?? "xlsx";
@@ -25,7 +30,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const supabase = await createClient();
+  const supabase = authSupabase;
 
   // Build date range for the month
   const [year, month] = mes.split("-").map(Number);

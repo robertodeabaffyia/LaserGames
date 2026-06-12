@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
 import * as XLSX from "xlsx";
 
 type Params = { params: Promise<{ id: string }> };
@@ -9,6 +10,10 @@ type Params = { params: Promise<{ id: string }> };
  * Returns an Excel workbook with the employee profile and hours history.
  */
 export async function GET(request: NextRequest, { params }: Params) {
+  const authSupabase = await createClient();
+  const user = await requireUser(authSupabase);
+  if (!user) return unauthorizedResponse();
+
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const formato = searchParams.get("formato") ?? "xlsx";
@@ -20,7 +25,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     );
   }
 
-  const supabase = await createClient();
+  const supabase = authSupabase;
 
   const { data: empleado, error } = await supabase
     .from("empleados")

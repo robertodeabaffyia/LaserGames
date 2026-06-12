@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
 import type { NotificacionTipo } from "@/types/notificaciones";
 
 const VALID_TIPOS: NotificacionTipo[] = [
@@ -8,9 +9,16 @@ const VALID_TIPOS: NotificacionTipo[] = [
   "confirmacion_evento",
 ];
 
-/** GET — list unsubscribes, optionally filtered by cliente_id or tipo */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** GET — list unsubscribes (staff only), optionally filtered by cliente_id or tipo */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
+
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
+
   const { searchParams } = new URL(request.url);
   const cliente_id = searchParams.get("cliente_id");
   const tipo       = searchParams.get("tipo");
@@ -40,8 +48,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (!body.cliente_id) {
-    return NextResponse.json({ error: "cliente_id is required" }, { status: 400 });
+  if (!body.cliente_id || !UUID_RE.test(body.cliente_id)) {
+    return NextResponse.json({ error: "cliente_id must be a valid UUID" }, { status: 400 });
   }
 
   if (!body.tipo_notificacion || !VALID_TIPOS.includes(body.tipo_notificacion as NotificacionTipo)) {
@@ -68,9 +76,13 @@ export async function POST(request: NextRequest) {
   return NextResponse.json(data, { status: 200 });
 }
 
-/** DELETE — remove an unsubscribe record (re-subscribe) */
+/** DELETE — remove an unsubscribe record (re-subscribe, staff only) */
 export async function DELETE(request: NextRequest) {
   const supabase = await createClient();
+
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
+
   const { searchParams } = new URL(request.url);
   const cliente_id        = searchParams.get("cliente_id");
   const tipo_notificacion = searchParams.get("tipo");

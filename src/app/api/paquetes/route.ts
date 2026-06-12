@@ -1,9 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser, unauthorizedResponse } from "@/lib/auth-helpers";
 import type { PaqueteInsert, ItemInput } from "@/types/paquetes";
 
 export async function GET() {
   const supabase = await createClient();
+
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
 
   const { data, error } = await supabase
     .from("paquetes")
@@ -16,6 +20,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
+
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
 
   let body: PaqueteInsert & { items?: ItemInput[] };
   try {

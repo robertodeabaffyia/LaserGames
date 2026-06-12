@@ -50,6 +50,16 @@ export default function NotificacionConfigForm({
     });
   }
 
+  /** Escape HTML so stored templates can never inject markup into the preview. */
+  function escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   /** Replace variables in preview */
   function buildPreview(): string {
     const sampleVars: Record<string, string> = {
@@ -64,7 +74,9 @@ export default function NotificacionConfigForm({
       monto_pagado: "$2,000.00",
       saldo_pendiente: "$3,000.00",
     };
-    return form.contenido_template.replace(
+    // Escape the template BEFORE inserting our own <mark> markup, so only the
+    // highlight tags we generate are interpreted as HTML.
+    return escapeHtml(form.contenido_template).replace(
       /\{\{(\w+)\}\}/g,
       (_, k) => `<mark class="bg-yellow-900/40 text-yellow-300 px-0.5 rounded">${sampleVars[k] ?? k}</mark>`
     );

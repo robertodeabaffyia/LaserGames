@@ -19,11 +19,11 @@ describe("LoginPage", () => {
     expect(screen.getByRole("button", { name: /iniciar sesión/i })).toBeInTheDocument();
   });
 
-  it("renders a link to the signup page", async () => {
+  it("does not offer public signup (accounts are admin-provisioned)", async () => {
     await renderLoginPage();
 
-    const link = screen.getByRole("link", { name: /regístrate/i });
-    expect(link).toHaveAttribute("href", "/signup");
+    expect(screen.queryByRole("link", { name: /regístrate/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/contacta al administrador/i)).toBeInTheDocument();
   });
 
   it("shows error banner when error param is present", async () => {

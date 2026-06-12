@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { Pago, PagoAuditoria } from "@/types/pagos";
 import { montoEfectivo, calcularEstadoPago } from "@/types/pagos";
+import { formatMoneda } from "@/lib/moneda";
+import { formatFechaHora } from "@/lib/fecha";
 
 interface HistorialPagosProps {
   pagos: Pago[];
@@ -10,6 +12,9 @@ interface HistorialPagosProps {
   montoSena?: number; // from config
   onDelete?: (id: string) => void;
   onEdited?: () => void; // refresh parent after edit
+  /** Optional event context printed on payment receipts */
+  eventoNombre?: string;
+  eventoFecha?: string;
 }
 
 const METODO_LABELS: Record<string, string> = {
@@ -25,17 +30,11 @@ const ACCION_LABELS: Record<string, string> = {
 };
 
 function fmtCurrency(n: number) {
-  return `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+  return formatMoneda(n);
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleString("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatFechaHora(iso);
 }
 
 function descuentoLabel(p: Pago): string | null {
@@ -236,9 +235,64 @@ export default function HistorialPagos({
   montoSena = 0,
   onDelete,
   onEdited,
+  eventoNombre,
+  eventoFecha,
 }: HistorialPagosProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingPago, setEditingPago] = useState<Pago | null>(null);
+
+  /** Generates a one-page PDF receipt for a single payment. */
+  async function handleRecibo(p: Pago) {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF();
+    const efectivo = montoEfectivo(p);
+
+    doc.setFontSize(18);
+    doc.text("Laser Games", 14, 22);
+    doc.setFontSize(12);
+    doc.text("Comprobante de pago", 14, 30);
+    doc.setDrawColor(120);
+    doc.line(14, 34, 196, 34);
+
+    doc.setFontSize(10);
+    let y = 44;
+    const row = (label: string, value: string) => {
+      doc.setFont("helvetica", "bold");
+      doc.text(label, 14, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(value, 70, y);
+      y += 7;
+    };
+
+    if (eventoNombre) row("Evento:", eventoNombre);
+    if (eventoFecha) row("Fecha del evento:", fmtDate(eventoFecha));
+    row("Fecha de pago:", fmtDate(p.fecha_pago));
+    row(
+      "Método:",
+      `${METODO_LABELS[p.metodo] ?? p.metodo}${
+        p.tipo_tarjeta
+          ? ` — ${p.tipo_tarjeta} ${p.num_cuotas === 1 ? "contado" : `${p.num_cuotas} cuotas`}${
+              p.recargo_pct ? ` (+${p.recargo_pct}%)` : ""
+            }`
+          : ""
+      }`
+    );
+    if (p.quien_recibio) row("Recibido por:", p.quien_recibio);
+    row("Monto base:", fmtCurrency(p.monto));
+    const descLabel = descuentoLabel(p);
+    if (descLabel) row("Descuento:", descLabel);
+    doc.setFontSize(12);
+    row("Acreditado:", fmtCurrency(efectivo));
+    doc.setFontSize(10);
+    if (p.notas) row("Notas:", p.notas);
+
+    y += 6;
+    doc.setFontSize(8);
+    doc.setTextColor(130);
+    doc.text(`Comprobante generado el ${fmtDate(new Date().toISOString())} — Pago N° ${p.id}`, 14, y);
+
+    doc.save(`recibo_${p.id.slice(0, 8)}.pdf`);
+  }
 
   const totalPagado = pagos.reduce((sum, p) => sum + montoEfectivo(p), 0);
   const saldo = precioTotal - totalPagado;
@@ -407,6 +461,14 @@ export default function HistorialPagos({
                       {/* Actions */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleRecibo(p)}
+                            className="text-xs text-gray-400 hover:text-white transition-colors"
+                            title="Descargar comprobante PDF"
+                          >
+                            🧾 Recibo
+                          </button>
                           {onEdited && (
                             <button
                               type="button"

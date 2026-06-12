@@ -54,8 +54,8 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // ── Auth routes ──────────────────────────────────────────────────────────
-  // Redirect authenticated users away from login / signup
-  if (pathname.startsWith("/login") || pathname.startsWith("/signup")) {
+  // Redirect authenticated users away from login
+  if (pathname.startsWith("/login")) {
     if (user) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }

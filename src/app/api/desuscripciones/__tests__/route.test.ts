@@ -5,8 +5,12 @@ import { NextRequest } from "next/server";
 import { GET, POST, DELETE } from "../route";
 
 const mockFrom = jest.fn();
+const mockGetUser = jest.fn();
+mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
 jest.mock("@/lib/supabase/server", () => ({
-  createClient: jest.fn(() => Promise.resolve({ from: mockFrom })),
+  createClient: jest.fn(() =>
+    Promise.resolve({ from: mockFrom, auth: { getUser: mockGetUser } })
+  ),
 }));
 
 function chain(result: unknown) {
@@ -68,7 +72,16 @@ describe("GET /api/desuscripciones", () => {
 });
 
 describe("POST /api/desuscripciones", () => {
-  const validBody = { cliente_id: "cli-1", tipo_notificacion: "evento_recordatorio" };
+  const validBody = {
+    cliente_id: "11111111-2222-3333-4444-555555555555",
+    tipo_notificacion: "evento_recordatorio",
+  };
+
+  it("returns 400 when cliente_id is not a UUID", async () => {
+    const res = await POST(postReq({ ...validBody, cliente_id: "cli-1" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/UUID/);
+  });
 
   it("returns 200 with upserted record", async () => {
     mockFrom.mockReturnValue(chain({ data: mockDesusc, error: null }));

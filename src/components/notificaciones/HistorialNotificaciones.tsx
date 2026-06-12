@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { HistorialNotificacion, NotificacionTipo, NotificacionStatus } from "@/types/notificaciones";
 import { NOTIFICACION_TIPOS, NOTIFICACION_TIPO_LABELS } from "@/types/notificaciones";
+import { formatFechaHora } from "@/lib/fecha";
 
 export default function HistorialNotificaciones() {
   const today = new Date();
@@ -113,9 +114,7 @@ export default function HistorialNotificaciones() {
               {historial.map((h) => (
                 <tr key={h.id} className="hover:bg-gray-800/30 transition-colors">
                   <td className="px-4 py-3 text-gray-300 whitespace-nowrap text-xs">
-                    {new Date(h.fecha_envio).toLocaleString("es-MX", {
-                      day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-                    })}
+                    {formatFechaHora(h.fecha_envio)}
                   </td>
                   <td className="px-4 py-3 text-gray-300 text-xs">
                     {NOTIFICACION_TIPO_LABELS[h.tipo_notificacion]}

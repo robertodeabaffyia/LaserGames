@@ -22,24 +22,26 @@ export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
   const [notas, setNotas] = useState(cliente?.notas ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; telefono?: string }>({});
+  const [fieldErrors, setFieldErrors] = useState<{ nombre?: string; email?: string; telefono?: string }>({});
 
   function validate(): boolean {
-    const errors: { email?: string; telefono?: string } = {};
+    const errors: { nombre?: string; email?: string; telefono?: string } = {};
 
+    if (!nombre.trim()) {
+      errors.nombre = "El nombre es requerido";
+    }
     if (email && !validarEmail(email)) {
       errors.email = "Formato de email inválido";
     }
     if (telefono && !validarTelefono(telefono)) {
-      errors.telefono = "Debe tener 7–15 dígitos (ej. +52 55 1234 5678)";
+      errors.telefono = "Debe tener 7–15 dígitos (ej. +54 9 387 1234567)";
     }
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit() {
     if (!validate()) return;
 
     setSubmitting(true);
@@ -77,11 +79,11 @@ export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
     }
   }
 
+  // Rendered as <div> intentionally — this component is used inside modals that
+  // can themselves be inside another <form> (e.g. EventoForm). Nested <form>
+  // elements are invalid HTML and break browser submit behaviour.
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-gray-900 rounded-2xl p-6 shadow-xl space-y-4"
-    >
+    <div className="bg-gray-900 rounded-2xl p-6 shadow-xl space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-white">
           {isEdit ? "Editar cliente" : "Nuevo cliente"}
@@ -104,11 +106,17 @@ export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
       <div>
         <label className="label">Nombre *</label>
         <input
-          required
-          className="input"
+          className={`input ${fieldErrors.nombre ? "border-red-500" : ""}`}
           value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
+          onChange={(e) => {
+            setNombre(e.target.value);
+            if (fieldErrors.nombre) setFieldErrors((p) => ({ ...p, nombre: undefined }));
+          }}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(); } }}
         />
+        {fieldErrors.nombre && (
+          <p className="mt-1 text-xs text-red-400">{fieldErrors.nombre}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -122,7 +130,7 @@ export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
               setTelefono(e.target.value);
               if (fieldErrors.telefono) setFieldErrors((p) => ({ ...p, telefono: undefined }));
             }}
-            placeholder="+52 55 0000 0000"
+            placeholder="+54 9 387 1234567"
           />
           {fieldErrors.telefono && (
             <p className="mt-1 text-xs text-red-400">{fieldErrors.telefono}</p>
@@ -174,13 +182,14 @@ export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
           Cancelar
         </button>
         <button
-          type="submit"
+          type="button"
           disabled={submitting}
+          onClick={handleSubmit}
           className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-semibold py-2.5 text-sm transition-colors"
         >
           {submitting ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear cliente"}
         </button>
       </div>
-    </form>
+    </div>
   );
 }

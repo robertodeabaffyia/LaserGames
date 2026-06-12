@@ -119,3 +119,6 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ enviados, errores });
 }
+
+// Vercel Cron invoca con GET; misma lógica que POST (auth via Bearer CRON_SECRET)
+export { POST as GET };

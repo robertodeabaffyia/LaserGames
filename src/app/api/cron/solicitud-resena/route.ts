@@ -151,3 +151,6 @@ export async function POST(request: NextRequest) {
     fecha_objetivo: targetStr,
   });
 }
+
+// Vercel Cron invoca con GET; misma lógica que POST (auth via Bearer CRON_SECRET)
+export { POST as GET };

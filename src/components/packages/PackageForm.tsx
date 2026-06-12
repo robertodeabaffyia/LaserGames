@@ -16,6 +16,8 @@ interface FormState {
   precio: string;
   cantidad_ninos_incluidos: string;
   cantidad_adultos_incluidos: string;
+  precio_nino_adicional: string;
+  precio_adulto_adicional: string;
   es_activo: boolean;
 }
 
@@ -33,6 +35,8 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
     precio: paquete?.precio?.toString() ?? "",
     cantidad_ninos_incluidos: paquete?.cantidad_ninos_incluidos?.toString() ?? "10",
     cantidad_adultos_incluidos: paquete?.cantidad_adultos_incluidos?.toString() ?? "2",
+    precio_nino_adicional: paquete?.precio_nino_adicional?.toString() ?? "",
+    precio_adulto_adicional: paquete?.precio_adulto_adicional?.toString() ?? "",
     es_activo: paquete?.es_activo ?? true,
   });
   const [duracionHoras, setDuracionHoras] = useState(paquete?.duracion_horas ?? 2);
@@ -53,6 +57,27 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
       .then((r) => r.json())
       .then((data: Item[]) => setAvailableItems(data))
       .catch(() => setAvailableItems([]));
+  }, []);
+
+  // On CREATE: pre-fill additional prices from global config defaults
+  useEffect(() => {
+    if (isEdit) return;
+    fetch("/api/configuracion")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((cfg) => {
+        if (!cfg) return;
+        setForm((f) => ({
+          ...f,
+          precio_nino_adicional: f.precio_nino_adicional === ""
+            ? String(cfg.precio_nino_adicional ?? 0)
+            : f.precio_nino_adicional,
+          precio_adulto_adicional: f.precio_adulto_adicional === ""
+            ? String(cfg.precio_adulto_adicional ?? 0)
+            : f.precio_adulto_adicional,
+        }));
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function toggleItem(itemId: string) {
@@ -84,6 +109,8 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
       duracion_minutos: duracionMinutos,
       cantidad_ninos_incluidos: parseInt(form.cantidad_ninos_incluidos, 10),
       cantidad_adultos_incluidos: parseInt(form.cantidad_adultos_incluidos, 10),
+      precio_nino_adicional: parseFloat(form.precio_nino_adicional) || 0,
+      precio_adulto_adicional: parseFloat(form.precio_adulto_adicional) || 0,
       es_activo: form.es_activo,
       items: selectedItems satisfies ItemInput[],
     };
@@ -157,7 +184,7 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
         </div>
 
         <div>
-          <label className="label">Precio (MXN)</label>
+          <label className="label">Precio (ARS)</label>
           <input
             required
             type="number"
@@ -200,6 +227,30 @@ export default function PackageForm({ paquete, onClose }: PackageFormProps) {
             className="input"
             value={form.cantidad_adultos_incluidos}
             onChange={(e) => setForm((f) => ({ ...f, cantidad_adultos_incluidos: e.target.value }))}
+          />
+        </div>
+
+        <div>
+          <label className="label">Precio niño adicional ($)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="input"
+            value={form.precio_nino_adicional}
+            onChange={(e) => setForm((f) => ({ ...f, precio_nino_adicional: e.target.value }))}
+          />
+        </div>
+
+        <div>
+          <label className="label">Precio adulto adicional ($)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="input"
+            value={form.precio_adulto_adicional}
+            onChange={(e) => setForm((f) => ({ ...f, precio_adulto_adicional: e.target.value }))}
           />
         </div>
 

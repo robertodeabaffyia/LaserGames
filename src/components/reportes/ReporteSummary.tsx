@@ -12,9 +12,10 @@ import { rangoFromPeriodo } from "./PeriodoPicker";
 import PeriodoPicker from "./PeriodoPicker";
 import ExportPDF from "./ExportPDF";
 import ExportExcel from "./ExportExcel";
+import { formatMoneda } from "@/lib/moneda";
 
 function fmt(n: number) {
-  return `$${n.toLocaleString("es-MX", { maximumFractionDigits: 0 })}`;
+  return formatMoneda(n);
 }
 
 export default function ReporteSummary() {

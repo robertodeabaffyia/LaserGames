@@ -5,6 +5,7 @@ import { EVENTO_ESTADOS, type EventoEstado, type Evento } from "@/types/eventos"
 import { calcularEdad, MIN_EDAD_FESTEJADO } from "@/lib/validaciones";
 import { formatDuration } from "@/lib/duration";
 import { calcularPrecioTotal, combineFechaHora, eventoFechaToLocal } from "@/lib/eventos";
+import { formatMoneda } from "@/lib/moneda";
 import ClienteAutocomplete, {
   type ClienteResumen,
 } from "@/components/clientes/ClienteAutocomplete";
@@ -17,6 +18,8 @@ interface Paquete {
   duracion_minutos: number;
   cantidad_ninos_incluidos: number;
   cantidad_adultos_incluidos: number;
+  precio_nino_adicional: number;
+  precio_adulto_adicional: number;
 }
 
 interface EventoFormProps {
@@ -89,19 +92,17 @@ export default function EventoForm({
   // Initial data fetch
   useEffect(() => {
     async function init() {
-      const [paquetesRes, configRes] = await Promise.all([
-        fetch("/api/paquetes"),
-        fetch("/api/configuracion"),
-      ]);
-
-      const paquetesData = paquetesRes.ok ? await paquetesRes.json() : [];
+      const paquetesRes = await fetch("/api/paquetes");
+      const paquetesData: Paquete[] = paquetesRes.ok ? await paquetesRes.json() : [];
       setPaquetes(paquetesData ?? []);
 
-      if (configRes.ok) {
-        const cfg = await configRes.json();
-        // Always use current config prices — never stale stored evento prices
-        setPrecioNinoAdicional(cfg?.precio_nino_adicional ?? 0);
-        setPrecioAdultoAdicional(cfg?.precio_adulto_adicional ?? 0);
+      // Use the selected paquete's own prices (never stale stored evento prices)
+      if (evento?.paquete_id) {
+        const paq = paquetesData.find((p) => p.id === evento.paquete_id);
+        if (paq) {
+          setPrecioNinoAdicional(paq.precio_nino_adicional ?? 0);
+          setPrecioAdultoAdicional(paq.precio_adulto_adicional ?? 0);
+        }
       }
 
       // Edit mode: load current client for display (no auto-fill — values come from the evento)
@@ -193,8 +194,6 @@ export default function EventoForm({
       duracion_minutos: duracion.minutos,
     };
 
-    console.log("[EventoForm] duracion al enviar:", duracion);
-
     const url = isEditing ? `/api/eventos/${evento!.id}` : "/api/eventos";
     const method = isEditing ? "PUT" : "POST";
 
@@ -270,8 +269,9 @@ export default function EventoForm({
               const paq = paquetes.find((p) => p.id === newId);
               set("paquete_id", newId);
               if (paq) {
-                console.log("[EventoForm] paquete seleccionado:", { id: paq.id, nombre: paq.nombre, duracion_horas: paq.duracion_horas, duracion_minutos: paq.duracion_minutos });
                 setDuracion({ horas: paq.duracion_horas ?? 0, minutos: paq.duracion_minutos ?? 0 });
+                setPrecioNinoAdicional(paq.precio_nino_adicional ?? 0);
+                setPrecioAdultoAdicional(paq.precio_adulto_adicional ?? 0);
               }
             }}
             required
@@ -279,7 +279,7 @@ export default function EventoForm({
             <option value="">Selecciona un paquete</option>
             {paquetes.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.nombre} — ${p.precio.toLocaleString("es-MX")} ({formatDuration(p.duracion_horas, p.duracion_minutos)})
+                {p.nombre} — {formatMoneda(p.precio)} ({formatDuration(p.duracion_horas, p.duracion_minutos)})
               </option>
             ))}
           </select>
@@ -391,7 +391,7 @@ export default function EventoForm({
                   <span className="ml-2 text-yellow-400">
                     + {ninosAdicionales} adicionales
                     {precioNinoAdicional > 0 && (
-                      <> × ${precioNinoAdicional.toLocaleString("es-MX")} = ${(ninosAdicionales * precioNinoAdicional).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</>
+                      <> × {formatMoneda(precioNinoAdicional)} = {formatMoneda(ninosAdicionales * precioNinoAdicional)}</>
                     )}
                   </span>
                 )}
@@ -414,12 +414,35 @@ export default function EventoForm({
                   <span className="ml-2 text-yellow-400">
                     + {adultosAdicionales} adicionales
                     {precioAdultoAdicional > 0 && (
-                      <> × ${precioAdultoAdicional.toLocaleString("es-MX")} = ${(adultosAdicionales * precioAdultoAdicional).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</>
+                      <> × {formatMoneda(precioAdultoAdicional)} = {formatMoneda(adultosAdicionales * precioAdultoAdicional)}</>
                     )}
                   </span>
                 )}
               </p>
             )}
+          </div>
+
+          <div>
+            <label className="label">Precio niño adicional ($)</label>
+            <input
+              type="number"
+              className="input"
+              min={0}
+              step="0.01"
+              value={precioNinoAdicional}
+              onChange={(e) => setPrecioNinoAdicional(Number(e.target.value) || 0)}
+            />
+          </div>
+          <div>
+            <label className="label">Precio adulto adicional ($)</label>
+            <input
+              type="number"
+              className="input"
+              min={0}
+              step="0.01"
+              value={precioAdultoAdicional}
+              onChange={(e) => setPrecioAdultoAdicional(Number(e.target.value) || 0)}
+            />
           </div>
         </div>
 
@@ -438,7 +461,7 @@ export default function EventoForm({
           <div className="flex-1 rounded-lg bg-gray-800/60 border border-gray-700 px-4 py-2.5">
             <span className="text-xs text-gray-400">Total estimado</span>
             <p className="text-lg font-bold text-white">
-              ${Math.max(0, precioPreview).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              {formatMoneda(Math.max(0, precioPreview))}
             </p>
           </div>
         </div>

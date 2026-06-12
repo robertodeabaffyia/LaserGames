@@ -12,11 +12,12 @@ import { rangoFromPeriodo } from "./PeriodoPicker";
 import PeriodoPicker from "./PeriodoPicker";
 import ExportPDF from "./ExportPDF";
 import ExportExcel from "./ExportExcel";
+import { formatMoneda } from "@/lib/moneda";
 
 const COLORS_ING = ["#4ade80", "#34d399", "#6ee7b7"];
 const COLORS_EGR = ["#f87171", "#fb923c", "#fbbf24", "#a78bfa", "#f472b6", "#94a3b8"];
 
-function fmt(n: number) { return `$${n.toLocaleString("es-MX", { maximumFractionDigits: 0 })}`; }
+function fmt(n: number) { return formatMoneda(n); }
 
 const CATEGORIA_LABELS: Record<string, string> = {
   pago_evento:   "Pago evento",

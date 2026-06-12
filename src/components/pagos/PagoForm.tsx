@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { TarjetaRecargos, TarjetaNombre, CuotasClave } from "@/types/configuracion";
 import { TARJETAS, CUOTAS } from "@/types/configuracion";
 import type { TipoDescuento } from "@/types/pagos";
+import { formatMoneda } from "@/lib/moneda";
 
 interface PagoFormProps {
   eventoId: string;
@@ -189,7 +190,7 @@ export default function PagoForm({
             <div className="col-span-2 rounded-lg bg-amber-900/30 border border-amber-700 px-4 py-2.5 text-sm text-amber-300">
               Recargo {recargoPct}%: el cliente paga{" "}
               <span className="font-semibold">
-                ${totalConRecargo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                {formatMoneda(totalConRecargo)}
               </span>
             </div>
           )}
@@ -256,11 +257,11 @@ export default function PagoForm({
                   <>
                     Descuento:{" "}
                     <span className="font-semibold">
-                      −${descuentoAmount.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      −{formatMoneda(descuentoAmount)}
                     </span>
                     {" · "}Acreditado:{" "}
                     <span className="font-bold text-white">
-                      ${montoFinal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      {formatMoneda(montoFinal)}
                     </span>
                   </>
                 ) : (
@@ -288,7 +289,7 @@ export default function PagoForm({
         <p className="text-xs text-gray-400">
           Saldo restante:{" "}
           <span className="font-semibold text-white">
-            ${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            {formatMoneda(saldo)}
           </span>
         </p>
         <div className="flex gap-3">

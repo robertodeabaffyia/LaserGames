@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { MovimientoCaja, MovimientoTipo, MovimientoCategoria } from "@/types/caja";
 import { MOVIMIENTO_CATEGORIAS } from "@/types/caja";
+import { formatMoneda } from "@/lib/moneda";
 
 interface MovimientosListProps {
   refreshKey?: number;
@@ -154,10 +155,10 @@ export default function MovimientosList({ refreshKey, onRefresh }: MovimientosLi
       {/* Summary chips */}
       <div className="flex gap-3 text-xs">
         <span className="rounded-full bg-green-900/30 border border-green-800 px-3 py-1 text-green-400 font-medium">
-          ↑ Ingresos: ${totalIngresos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+          ↑ Ingresos: {formatMoneda(totalIngresos)}
         </span>
         <span className="rounded-full bg-red-900/30 border border-red-800 px-3 py-1 text-red-400 font-medium">
-          ↓ Egresos: ${totalEgresos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+          ↓ Egresos: {formatMoneda(totalEgresos)}
         </span>
       </div>
 
@@ -196,8 +197,7 @@ export default function MovimientosList({ refreshKey, onRefresh }: MovimientosLi
                   </td>
                   <td className="px-4 py-3 text-gray-200 max-w-[240px] truncate">{m.descripcion}</td>
                   <td className={`px-4 py-3 text-right font-semibold ${TIPO_COLORS[m.tipo]}`}>
-                    {m.tipo === "egreso" ? "−" : "+"}$
-                    {Number(m.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    {m.tipo === "egreso" ? "−" : "+"}{formatMoneda(Number(m.monto))}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button

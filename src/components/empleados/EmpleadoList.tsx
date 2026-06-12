@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import type { Empleado } from "@/types/empleados";
+import { formatMoneda } from "@/lib/moneda";
 
 interface EmpleadoListProps {
   onEdit: (empleado: Empleado) => void;
@@ -111,7 +112,7 @@ export default function EmpleadoList({ onEdit, onDeactivate, refreshKey }: Emple
                   <td className="px-4 py-3 text-gray-300">{emp.telefono ?? "—"}</td>
                   <td className="px-4 py-3 text-right text-gray-200">
                     {emp.tarifa_horaria != null
-                      ? `$${emp.tarifa_horaria.toLocaleString("es-MX")}`
+                      ? formatMoneda(emp.tarifa_horaria)
                       : "—"}
                   </td>
                   <td className="px-4 py-3 text-center">

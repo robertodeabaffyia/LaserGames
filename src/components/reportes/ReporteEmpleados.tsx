@@ -11,8 +11,9 @@ import { rangoFromPeriodo } from "./PeriodoPicker";
 import PeriodoPicker from "./PeriodoPicker";
 import ExportPDF from "./ExportPDF";
 import ExportExcel from "./ExportExcel";
+import { formatMoneda } from "@/lib/moneda";
 
-function fmt(n: number) { return `$${n.toLocaleString("es-MX", { maximumFractionDigits: 0 })}`; }
+function fmt(n: number) { return formatMoneda(n); }
 function fmtH(n: number) {
   return `${Math.floor(n)}h ${Math.round((n % 1) * 60)}m`;
 }

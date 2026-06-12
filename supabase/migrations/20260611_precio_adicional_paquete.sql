@@ -1,0 +1,3 @@
+ALTER TABLE paquetes
+  ADD COLUMN IF NOT EXISTS precio_nino_adicional  NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS precio_adulto_adicional NUMERIC(10, 2) NOT NULL DEFAULT 0;

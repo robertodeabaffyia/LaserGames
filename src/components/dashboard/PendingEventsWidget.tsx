@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatFecha } from "@/lib/fecha";
+import { formatMoneda } from "@/lib/moneda";
 
 interface EventoPendiente {
   id: string;
@@ -82,7 +83,7 @@ export default function PendingEventsWidget() {
                   {ev.estado}
                 </span>
                 <span className="text-xs text-gray-400">
-                  ${ev.precio_total.toLocaleString("es-MX")}
+                  {formatMoneda(ev.precio_total)}
                 </span>
               </div>
             </div>

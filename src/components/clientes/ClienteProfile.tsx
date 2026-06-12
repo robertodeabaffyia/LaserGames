@@ -6,6 +6,7 @@ import type { Hijo } from "@/types/hijos";
 import ClienteForm from "./ClienteForm";
 import HijoForm from "@/components/hijos/HijoForm";
 import { formatFecha, formatDiaMes } from "@/lib/fecha";
+import { formatMoneda } from "@/lib/moneda";
 
 interface ClienteProfileProps {
   clienteId: string;
@@ -175,7 +176,7 @@ export default function ClienteProfile({ clienteId }: ClienteProfileProps) {
                       {ev.paquete?.nombre ?? "—"}
                     </td>
                     <td className="py-2.5 text-gray-400 text-right">
-                      ${ev.precio_total.toLocaleString("es-MX")}
+                      {formatMoneda(ev.precio_total)}
                     </td>
                     <td className="py-2.5">
                       <span

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Empleado, RegistroHoras } from "@/types/empleados";
 import { formatearHoras } from "@/lib/registros-horas";
+import { formatMoneda } from "@/lib/moneda";
 import RegistroHorasForm from "./RegistroHorasForm";
 
 interface EmpleadoPerfilProps {
@@ -52,7 +53,7 @@ export default function EmpleadoPerfil({ empleado, onRefresh }: EmpleadoPerfilPr
     doc.text(`Tarifa/h: ${empleado.tarifa_horaria != null ? `$${empleado.tarifa_horaria}` : "—"}`, 14, 42);
     doc.text(`Total horas: ${formatearHoras(totalHoras)}`, 14, 48);
     if (costTotal != null) {
-      doc.text(`Costo total: $${costTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`, 14, 54);
+      doc.text(`Costo total: ${formatMoneda(costTotal)}`, 14, 54);
     }
 
     // Table header
@@ -99,7 +100,7 @@ export default function EmpleadoPerfil({ empleado, onRefresh }: EmpleadoPerfilPr
           <p className="text-xs text-gray-400 mb-1">Costo total</p>
           <p className="text-lg font-bold text-green-400">
             {costTotal != null
-              ? `$${costTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+              ? formatMoneda(costTotal)
               : "—"}
           </p>
         </div>

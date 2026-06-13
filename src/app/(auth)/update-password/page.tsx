@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createBrowserClient } from "@supabase/ssr";
+import PasswordInput from "@/components/auth/PasswordInput";
 
 export default function UpdatePasswordPage() {
   const router = useRouter();
@@ -67,14 +68,12 @@ export default function UpdatePasswordPage() {
           <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1.5">
             Nueva contraseña
           </label>
-          <input
+          <PasswordInput
             id="password"
-            type="password"
             required
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="••••••••"
           />
         </div>
 
@@ -82,14 +81,12 @@ export default function UpdatePasswordPage() {
           <label htmlFor="confirm" className="block text-sm font-medium text-gray-300 mb-1.5">
             Confirmá la contraseña
           </label>
-          <input
+          <PasswordInput
             id="confirm"
-            type="password"
             required
+            autoComplete="new-password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="••••••••"
           />
         </div>
 

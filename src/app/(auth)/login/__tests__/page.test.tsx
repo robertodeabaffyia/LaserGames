@@ -15,7 +15,9 @@ describe("LoginPage", () => {
     await renderLoginPage();
 
     expect(screen.getByLabelText(/correo electrónico/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/contraseña/i, { selector: "input" })
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /iniciar sesión/i })).toBeInTheDocument();
   });
 
@@ -58,8 +60,18 @@ describe("LoginPage", () => {
   it("password input has correct type and autocomplete", async () => {
     await renderLoginPage();
 
-    const passwordInput = screen.getByLabelText(/contraseña/i);
+    const passwordInput = screen.getByLabelText(/contraseña/i, {
+      selector: "input",
+    });
     expect(passwordInput).toHaveAttribute("type", "password");
     expect(passwordInput).toHaveAttribute("autocomplete", "current-password");
+  });
+
+  it("offers a toggle to show the password while typing", async () => {
+    await renderLoginPage();
+
+    expect(
+      screen.getByRole("button", { name: /mostrar contraseña/i })
+    ).toBeInTheDocument();
   });
 });

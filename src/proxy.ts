@@ -2,6 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { checkRateLimit } from "@/lib/rate-limit";
 
+export const SESSION_INACTIVITY_MS = 30 * 60 * 1000;
+
+const LAST_ACTIVITY_COOKIE = "last_activity";
+
 /**
  * API routes that bypass session validation (handle their own auth or are public):
  *   /api/cron/*          — uses Bearer CRON_SECRET
@@ -68,6 +72,35 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // ── Session inactivity timeout ───────────────────────────────────────────
+  // If 30 minutes pass with no server activity, sign the user out.
+  // New sessions (no cookie yet) are never considered expired — the cookie
+  // is set on first response and refreshed on every subsequent request.
+  if (user) {
+    const raw = request.cookies.get(LAST_ACTIVITY_COOKIE)?.value;
+    const lastActivity = raw !== undefined ? parseInt(raw, 10) : null;
+
+    if (
+      lastActivity !== null &&
+      !isNaN(lastActivity) &&
+      Date.now() - lastActivity > SESSION_INACTIVITY_MS
+    ) {
+      await supabase.auth.signOut();
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set(
+        "message",
+        "Tu sesión expiró por inactividad"
+      );
+      const expiredResponse = NextResponse.redirect(loginUrl);
+      // Copy the auth-clearing cookies that signOut wrote to supabaseResponse.
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        expiredResponse.cookies.set(cookie.name, cookie.value);
+      });
+      expiredResponse.cookies.delete(LAST_ACTIVITY_COOKIE);
+      return expiredResponse;
+    }
+  }
+
   // ── Auth routes ──────────────────────────────────────────────────────────
   // Redirect authenticated users away from login
   if (pathname.startsWith("/login")) {
@@ -107,6 +140,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(
       new URL("/admin/configuracion", request.url)
     );
+  }
+
+  // Stamp the current time so the next request can check for inactivity.
+  if (user) {
+    supabaseResponse.cookies.set(LAST_ACTIVITY_COOKIE, String(Date.now()), {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+    });
   }
 
   return supabaseResponse;

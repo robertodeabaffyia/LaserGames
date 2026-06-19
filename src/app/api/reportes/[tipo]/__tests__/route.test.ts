@@ -81,28 +81,31 @@ describe("GET /api/reportes/[tipo] — invalid", () => {
 // ── kpis ───────────────────────────────────────────────────────────────────────
 
 describe("GET /api/reportes/kpis", () => {
-  const movimientos = [
-    { tipo: "ingreso", monto: 3000 },
-    { tipo: "ingreso", monto: 1500 },
-    { tipo: "egreso", monto: 800 },
+  // ingresos now come from pagos table; egresos from movimientos_caja
+  const pagos = [
+    { monto: 3000, monto_final: null },
+    { monto: 2000, monto_final: 1500 }, // discount applied → 1500 effective
   ];
+  const egresos = [{ monto: 800 }];
   const clientes = [
     { fecha_cumpleanos: "1990-05-25" }, // in 4 days — within 30
     { fecha_cumpleanos: "1985-07-10" }, // not within 30
   ];
   const hijos = [{ fecha_cumpleanos: "2018-05-30" }]; // 9 days — within 30
 
-  it("returns correct KPI totals", async () => {
+  it("returns correct KPI totals (ingresos from pagos, egresos from movimientos_caja)", async () => {
     mockFrom
-      .mockReturnValueOnce(chain({ data: movimientos, error: null }))        // movimientos_caja
-      .mockReturnValueOnce(chain({ data: null, error: null, count: 5 }))     // eventos count
+      .mockReturnValueOnce(chain({ data: pagos, error: null }))              // pagos (ingresos)
+      .mockReturnValueOnce(chain({ data: egresos, error: null }))            // movimientos_caja (egresos)
+      .mockReturnValueOnce(chain({ data: null, error: null, count: 5 }))    // eventos count
       .mockReturnValueOnce(chain({ data: [{ id: "ev-1" }, { id: "ev-2" }], error: null })) // pendientes
-      .mockReturnValueOnce(chain({ data: clientes, error: null }))            // clientes
-      .mockReturnValueOnce(chain({ data: hijos, error: null }));              // hijos
+      .mockReturnValueOnce(chain({ data: clientes, error: null }))           // clientes
+      .mockReturnValueOnce(chain({ data: hijos, error: null }));             // hijos
 
     const res = await GET(req("kpis"), params("kpis"));
     expect(res.status).toBe(200);
     const body = await res.json();
+    // 3000 + 1500 (discount-adjusted) = 4500
     expect(body.ingresos_mes).toBe(4500);
     expect(body.egresos_mes).toBe(800);
     expect(body.ganancia_neta).toBe(3700);
@@ -111,8 +114,17 @@ describe("GET /api/reportes/kpis", () => {
     expect(body.cumpleanos_proximos).toBe(2); // 1990-05-25 and 2018-05-30
   });
 
-  it("returns 500 on movimientos DB error", async () => {
+  it("returns 500 on pagos DB error", async () => {
     mockFrom.mockReturnValueOnce(chain({ data: null, error: { message: "DB fail" } }));
+
+    const res = await GET(req("kpis"), params("kpis"));
+    expect(res.status).toBe(500);
+  });
+
+  it("returns 500 on egresos DB error", async () => {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: [], error: null }))                 // pagos OK
+      .mockReturnValueOnce(chain({ data: null, error: { message: "DB fail" } })); // egresos fail
 
     const res = await GET(req("kpis"), params("kpis"));
     expect(res.status).toBe(500);
@@ -120,11 +132,12 @@ describe("GET /api/reportes/kpis", () => {
 
   it("handles empty data gracefully", async () => {
     mockFrom
-      .mockReturnValueOnce(chain({ data: [], error: null }))
-      .mockReturnValueOnce(chain({ data: null, error: null, count: 0 }))
-      .mockReturnValueOnce(chain({ data: [], error: null }))
-      .mockReturnValueOnce(chain({ data: [], error: null }))
-      .mockReturnValueOnce(chain({ data: [], error: null }));
+      .mockReturnValueOnce(chain({ data: [], error: null }))                 // pagos
+      .mockReturnValueOnce(chain({ data: [], error: null }))                 // egresos
+      .mockReturnValueOnce(chain({ data: null, error: null, count: 0 }))    // eventos count
+      .mockReturnValueOnce(chain({ data: [], error: null }))                 // pendientes
+      .mockReturnValueOnce(chain({ data: [], error: null }))                 // clientes
+      .mockReturnValueOnce(chain({ data: [], error: null }));                // hijos
 
     const res = await GET(req("kpis"), params("kpis"));
     expect(res.status).toBe(200);

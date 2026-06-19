@@ -69,20 +69,35 @@ async function handleKpis(supabase: any): Promise<KPIs> {
   const { desde, hasta } = currentMonthRange();
   const today = new Date();
 
-  const { data: movimientos, error: movErr } = await supabase
+  // ingresos_mes: sum from pagos table (accurate; immune to stale movimientos from deleted payments)
+  const { data: pagosDelMes, error: pagosErr } = await supabase
+    .from("pagos")
+    .select("monto, monto_final")
+    .gte("fecha_pago", `${desde}T00:00:00`)
+    .lte("fecha_pago", `${hasta}T23:59:59`);
+
+  if (pagosErr) throw new Error(pagosErr.message);
+
+  const ingresos_mes = (pagosDelMes ?? []).reduce(
+    (s: number, p: { monto: number; monto_final: number | null }) =>
+      s + (p.monto_final ?? p.monto),
+    0
+  );
+
+  // egresos_mes: manual expense entries stay in movimientos_caja
+  const { data: egresosDelMes, error: egresosErr } = await supabase
     .from("movimientos_caja")
-    .select("tipo, monto")
+    .select("monto")
+    .eq("tipo", "egreso")
     .gte("fecha", desde)
     .lte("fecha", hasta);
 
-  if (movErr) throw new Error(movErr.message);
+  if (egresosErr) throw new Error(egresosErr.message);
 
-  const ingresos_mes = (movimientos ?? [])
-    .filter((m: { tipo: string }) => m.tipo === "ingreso")
-    .reduce((s: number, m: { monto: number }) => s + m.monto, 0);
-  const egresos_mes = (movimientos ?? [])
-    .filter((m: { tipo: string }) => m.tipo === "egreso")
-    .reduce((s: number, m: { monto: number }) => s + m.monto, 0);
+  const egresos_mes = (egresosDelMes ?? []).reduce(
+    (s: number, m: { monto: number }) => s + m.monto,
+    0
+  );
 
   const { count: eventos_mes } = await supabase
     .from("eventos")

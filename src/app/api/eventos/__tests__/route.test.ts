@@ -102,6 +102,23 @@ describe("GET /api/eventos", () => {
     expect(c.eq).toHaveBeenCalledWith("cliente_id", "cli-1");
   });
 
+  it("includes pagos in the response for saldo computation", async () => {
+    const eventoWithPagos = {
+      ...mockEvento,
+      pagos: [
+        { id: "p-1", monto: 1000, monto_final: null, metodo: "efectivo", fecha_pago: "2026-06-01T10:00:00Z" },
+        { id: "p-2", monto: 500, monto_final: 450, metodo: "tarjeta", fecha_pago: "2026-06-05T10:00:00Z" },
+      ],
+    };
+    mockFrom.mockReturnValue(chain({ data: [eventoWithPagos], error: null }));
+
+    const res = await GET(req("GET", "http://localhost/api/eventos"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body[0].pagos).toHaveLength(2);
+    expect(body[0].pagos[1].monto_final).toBe(450);
+  });
+
   it("passes fecha_inicio and fecha_fin filters", async () => {
     const c = chain({ data: [], error: null });
     mockFrom.mockReturnValue(c);

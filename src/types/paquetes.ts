@@ -25,6 +25,7 @@ export interface Paquete {
   /** Price per extra adult beyond cantidad_adultos_incluidos */
   precio_adulto_adicional: number;
   es_activo: boolean;
+  orden: number;
   created_at: string;
   updated_at: string;
 }

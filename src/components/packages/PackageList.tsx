@@ -1,9 +1,70 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  arrayMove,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { PaqueteWithItems } from "@/types/paquetes";
 import PackageCard from "./PackageCard";
 import PackageForm from "./PackageForm";
+
+// ── Sortable wrapper ──────────────────────────────────────────────────────────
+
+function SortablePackageCard({
+  paquete,
+  onEdit,
+  onDelete,
+}: {
+  paquete: PaqueteWithItems;
+  onEdit: (p: PaqueteWithItems) => void;
+  onDelete: (id: string) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: paquete.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    position: "relative",
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <PackageCard
+        paquete={paquete}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        dragHandleProps={
+          { ...attributes, ...listeners } as React.HTMLAttributes<HTMLButtonElement>
+        }
+        isDragging={isDragging}
+      />
+    </div>
+  );
+}
+
+// ── PackageList ───────────────────────────────────────────────────────────────
 
 export default function PackageList() {
   const [paquetes, setPaquetes] = useState<PaqueteWithItems[]>([]);
@@ -11,6 +72,11 @@ export default function PackageList() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<PaqueteWithItems | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   async function fetchPaquetes() {
     setLoading(true);
@@ -30,6 +96,39 @@ export default function PackageList() {
   useEffect(() => {
     fetchPaquetes();
   }, []);
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = paquetes.findIndex((p) => p.id === active.id);
+    const newIndex = paquetes.findIndex((p) => p.id === over.id);
+
+    const original = [...paquetes];
+    const reordered = arrayMove(paquetes, oldIndex, newIndex);
+
+    // Optimistic update
+    setPaquetes(reordered);
+    setError(null);
+
+    const ordenUpdates = reordered.map((p, i) => ({ id: p.id, orden: i }));
+
+    fetch("/api/paquetes/orden", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(ordenUpdates),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          setPaquetes(original);
+          setError("No se pudo guardar el nuevo orden. Intente de nuevo.");
+        }
+      })
+      .catch(() => {
+        setPaquetes(original);
+        setError("No se pudo guardar el nuevo orden. Intente de nuevo.");
+      });
+  }
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este paquete?")) return;
@@ -85,16 +184,27 @@ export default function PackageList() {
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {paquetes.map((p) => (
-          <PackageCard
-            key={p.id}
-            paquete={p}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
-        ))}
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={paquetes.map((p) => p.id)}
+          strategy={rectSortingStrategy}
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {paquetes.map((p) => (
+              <SortablePackageCard
+                key={p.id}
+                paquete={p}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

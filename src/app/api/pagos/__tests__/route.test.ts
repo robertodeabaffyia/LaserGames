@@ -32,7 +32,7 @@ function chain(result: unknown) {
   return c;
 }
 
-const mockEvento = { id: "ev-1", precio_total: 3000, estado: "pendiente" };
+const mockEvento = { id: "ev-1", precio_total: 3000, estado: "pendiente", nombre_festejado: "Mateo" };
 const mockConfig = { monto_seña: 1000, tarjeta_recargos: { VISA: { "1": 0, "3": 3.5 } } };
 const mockPago = {
   id: "pago-1",
@@ -243,6 +243,8 @@ describe("POST /api/pagos", () => {
         categoria: "pago_evento",
         evento_id: "ev-1",
         monto: 1000, // montoFinal = body.monto when no discount
+        pago_id: "pago-1", // exact FK link — enables reliable delete/update sync
+        descripcion: "Pago evento (efectivo) — Mateo", // human-readable, no UUID
       })
     );
   });

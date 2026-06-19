@@ -40,13 +40,15 @@ const mockMovimiento = {
   usuario_id: "user-1",
   tipo: "ingreso",
   categoria: "pago_evento",
-  descripcion: "Pago evento ev-1",
+  descripcion: "Pago evento (efectivo) — Mateo",
   monto: 1500,
   fecha: "2026-05-15",
   es_repetible: false,
   frecuencia_repeticion: null,
   evento_id: "ev-1",
   empleado_id: null,
+  pago_id: "pago-1",
+  evento: { nombre_festejado: "Mateo", cliente: { nombre: "García" } },
   created_at: "2026-05-15T10:00:00Z",
 };
 
@@ -79,12 +81,21 @@ describe("GET /api/movimientos-caja", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 200 with list (no filters)", async () => {
-    mockFrom.mockReturnValue(chain({ data: [mockMovimiento], error: null }));
+  it("returns 200 with list including joined evento data", async () => {
+    const c = chain({ data: [mockMovimiento], error: null });
+    mockFrom.mockReturnValue(c);
 
     const res = await GET(new NextRequest("http://localhost/api/movimientos-caja"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toHaveLength(1);
+    const body = await res.json();
+    expect(body).toHaveLength(1);
+    // Verify the evento join is included for human-readable description display
+    expect(body[0].pago_id).toBe("pago-1");
+    expect(body[0].evento?.nombre_festejado).toBe("Mateo");
+    // Select string includes the evento join
+    expect(c.select).toHaveBeenCalledWith(
+      expect.stringContaining("evento:eventos(nombre_festejado")
+    );
   });
 
   it("applies mes filter with gte/lte", async () => {

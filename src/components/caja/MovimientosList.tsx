@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { MovimientoCaja, MovimientoTipo, MovimientoCategoria } from "@/types/caja";
 import { MOVIMIENTO_CATEGORIAS, CATEGORIA_LABELS } from "@/types/caja";
 import { formatMoneda } from "@/lib/moneda";
+import { formatFecha } from "@/lib/fecha";
 
 interface MovimientosListProps {
   refreshKey?: number;
@@ -175,7 +176,7 @@ export default function MovimientosList({ refreshKey, onRefresh }: MovimientosLi
             <tbody className="divide-y divide-gray-800">
               {movimientos.map((m) => (
                 <tr key={m.id} className="hover:bg-gray-800/30 transition-colors">
-                  <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{m.fecha}</td>
+                  <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{formatFecha(m.fecha)}</td>
                   <td className={`px-4 py-3 font-medium capitalize ${TIPO_COLORS[m.tipo]}`}>
                     {m.tipo}
                   </td>
@@ -185,7 +186,11 @@ export default function MovimientosList({ refreshKey, onRefresh }: MovimientosLi
                       <span className="ml-1.5 text-xs text-indigo-400">↺ {m.frecuencia_repeticion}</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-200 max-w-[240px] truncate">{m.descripcion}</td>
+                  <td className="px-4 py-3 text-gray-200 max-w-[240px] truncate">
+                    {m.categoria === "pago_evento" && m.evento?.nombre_festejado
+                      ? `${m.evento.nombre_festejado}${m.evento.cliente ? ` — ${m.evento.cliente.nombre}` : ""}`
+                      : m.descripcion}
+                  </td>
                   <td className={`px-4 py-3 text-right font-semibold ${TIPO_COLORS[m.tipo]}`}>
                     {m.tipo === "egreso" ? "−" : "+"}{formatMoneda(Number(m.monto))}
                   </td>

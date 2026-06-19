@@ -56,6 +56,9 @@ export interface MovimientoCaja {
   frecuencia_repeticion: FrecuenciaRepeticion | null;
   evento_id: string | null;
   empleado_id: string | null;
+  pago_id: string | null;
+  /** Joined by GET /api/movimientos-caja for human-readable display. */
+  evento?: { nombre_festejado: string; cliente: { nombre: string } | null } | null;
   created_at: string;
 }
 

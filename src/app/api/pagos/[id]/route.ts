@@ -99,10 +99,29 @@ export async function PUT(request: NextRequest, { params }: Params) {
   }
 
   // ── Recalculate evento estado ─────────────────────────────────────────────
-  // Always recalculate, not only when monto changes, so any edit that touches
-  // amount fields correctly reflects the new balance.
 
   await recalcularEstadoEvento(supabase, existing.evento_id, user.id);
+
+  // ── Sync movimiento_caja when cash-relevant fields change ─────────────────
+  // 0-row updates (old rows without pago_id) are not treated as errors.
+
+  const movUpdates: Record<string, unknown> = {};
+  if ("monto" in updates) {
+    movUpdates.monto =
+      (updates.monto_final as number | undefined) ?? (updates.monto as number);
+  }
+  if ("fecha_pago" in updates) {
+    movUpdates.fecha = (updates.fecha_pago as string).slice(0, 10);
+  }
+  if (Object.keys(movUpdates).length > 0) {
+    const { error: movUpdateErr } = await supabase
+      .from("movimientos_caja")
+      .update(movUpdates)
+      .eq("pago_id", id);
+    if (movUpdateErr) {
+      console.error("movimiento_caja sync failed for pago", id, movUpdateErr.message);
+    }
+  }
 
   return NextResponse.json(updated);
 }
@@ -134,6 +153,23 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   if (fetchError || !pago) {
     return NextResponse.json({ error: "Pago not found" }, { status: 404 });
   }
+
+  // ── Delete paired movimiento_caja first (exact match by pago_id) ──────────
+  // No-op for old rows that predate the pago_id migration (0 rows deleted = OK).
+
+  const { error: movErr } = await supabase
+    .from("movimientos_caja")
+    .delete()
+    .eq("pago_id", id);
+
+  if (movErr) {
+    return NextResponse.json(
+      { error: "Error al eliminar movimiento de caja" },
+      { status: 500 }
+    );
+  }
+
+  // ── Delete pago ───────────────────────────────────────────────────────────
 
   const { error } = await supabase.from("pagos").delete().eq("id", id);
 

@@ -8,17 +8,56 @@ interface PackageCardProps {
   paquete: PaqueteWithItems;
   onEdit: (paquete: PaqueteWithItems) => void;
   onDelete: (id: string) => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
+  isDragging?: boolean;
 }
 
-export default function PackageCard({ paquete, onEdit, onDelete }: PackageCardProps) {
+function GripIcon() {
   return (
-    <div className="bg-gray-800 rounded-xl p-5 border border-gray-700 flex flex-col gap-3">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="4" r="1.5" />
+      <circle cx="11" cy="4" r="1.5" />
+      <circle cx="5" cy="8" r="1.5" />
+      <circle cx="11" cy="8" r="1.5" />
+      <circle cx="5" cy="12" r="1.5" />
+      <circle cx="11" cy="12" r="1.5" />
+    </svg>
+  );
+}
+
+export default function PackageCard({
+  paquete,
+  onEdit,
+  onDelete,
+  dragHandleProps,
+  isDragging,
+}: PackageCardProps) {
+  return (
+    <div
+      className={`bg-gray-800 rounded-xl p-5 border flex flex-col gap-3 transition-shadow ${
+        isDragging
+          ? "border-indigo-500 shadow-lg shadow-indigo-900/40 opacity-50"
+          : "border-gray-700"
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-white font-semibold text-lg leading-tight">{paquete.nombre}</h3>
-          {paquete.descripcion && (
-            <p className="text-gray-400 text-sm mt-0.5 line-clamp-2">{paquete.descripcion}</p>
+        <div className="flex items-start gap-2 min-w-0">
+          {dragHandleProps && (
+            <button
+              type="button"
+              {...dragHandleProps}
+              className="mt-1 shrink-0 text-gray-600 hover:text-gray-400 cursor-grab active:cursor-grabbing focus:outline-none"
+              aria-label="Arrastrar para reordenar"
+            >
+              <GripIcon />
+            </button>
           )}
+          <div className="min-w-0">
+            <h3 className="text-white font-semibold text-lg leading-tight">{paquete.nombre}</h3>
+            {paquete.descripcion && (
+              <p className="text-gray-400 text-sm mt-0.5 line-clamp-2">{paquete.descripcion}</p>
+            )}
+          </div>
         </div>
         <span
           className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
@@ -38,7 +77,6 @@ export default function PackageCard({ paquete, onEdit, onDelete }: PackageCardPr
         <span>{formatDuration(paquete.duracion_horas, paquete.duracion_minutos)}</span>
       </div>
 
-      {/* Included guests */}
       <p className="text-sm text-gray-400">
         {paquete.cantidad_ninos_incluidos} niños, {paquete.cantidad_adultos_incluidos} adultos incluidos
       </p>

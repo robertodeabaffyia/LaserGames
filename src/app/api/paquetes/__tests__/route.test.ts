@@ -73,6 +73,14 @@ describe("GET /api/paquetes", () => {
     expect(mockFrom).toHaveBeenCalledWith("paquetes");
   });
 
+  it("orders packages by orden ascending", async () => {
+    const c = chain({ data: [mockPaquete], error: null });
+    mockFrom.mockReturnValue(c);
+
+    await GET();
+    expect(c.order).toHaveBeenCalledWith("orden", { ascending: true });
+  });
+
   it("returns 500 on database error", async () => {
     mockFrom.mockReturnValue(chain({ data: null, error: { message: "DB error" } }));
 

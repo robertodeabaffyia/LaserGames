@@ -8,6 +8,7 @@ import {
   formatDiaMes,
   formatHora,
   parseFecha,
+  isoToDatetimeLocal,
 } from "../fecha";
 
 // Use local-time constructor to keep tests timezone-independent
@@ -153,6 +154,45 @@ describe("formatHora", () => {
 
   it("returns — for undefined", () => {
     expect(formatHora(undefined)).toBe("—");
+  });
+});
+
+// ─── isoToDatetimeLocal ───────────────────────────────────────────────────────
+//
+// These tests use the local-time constructor `new Date(y, mo, d, h, mi)` so
+// the assertions are timezone-independent: whatever offset the test runner
+// uses, the round-trip must be lossless.
+
+describe("isoToDatetimeLocal", () => {
+  it("returns YYYY-MM-DDTHH:MM from a Date object", () => {
+    const d = new Date(2026, 4, 23, 14, 30, 0); // 23 May 2026 14:30 local
+    expect(isoToDatetimeLocal(d)).toBe("2026-05-23T14:30");
+  });
+
+  it("round-trips with new Date() — local time is preserved", () => {
+    // Simulate a payment saved at local 14:30 and stored as UTC in the DB.
+    const local = new Date(2026, 5, 19, 14, 30, 0); // 19 Jun 2026 14:30 local
+    const utcIso = local.toISOString();             // e.g. "2026-06-19T17:30:00.000Z" in UTC-3
+    expect(isoToDatetimeLocal(utcIso)).toBe("2026-06-19T14:30");
+  });
+
+  it("pads single-digit month, day, hour, and minute", () => {
+    const d = new Date(2026, 0, 3, 8, 5, 0); // 3 Jan 2026 08:05 local
+    expect(isoToDatetimeLocal(d)).toBe("2026-01-03T08:05");
+  });
+
+  it("handles midnight (00:00)", () => {
+    const d = new Date(2026, 11, 31, 0, 0, 0); // 31 Dec 2026 00:00 local
+    expect(isoToDatetimeLocal(d)).toBe("2026-12-31T00:00");
+  });
+
+  it("accepts a UTC ISO string and produces local datetime-local", () => {
+    // Build a Date from local constructor so the expected value is correct
+    // regardless of which timezone the CI runner is in.
+    const localDate = new Date(2026, 4, 23, 15, 30, 0);
+    const iso = localDate.toISOString();
+    const result = isoToDatetimeLocal(iso);
+    expect(result).toBe("2026-05-23T15:30");
   });
 });
 

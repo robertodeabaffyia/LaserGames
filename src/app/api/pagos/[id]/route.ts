@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRol, hasMinRole, forbiddenResponse } from "@/lib/auth-helpers";
 import type { PagoUpdate } from "@/types/pagos";
-import type { TarjetaRecargos } from "@/types/configuracion";
+import { recalcularEstadoEvento } from "@/lib/pagos";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -11,8 +11,8 @@ const FORBIDDEN_MSG =
 
 // ── PUT /api/pagos/[id] ───────────────────────────────────────────────────────
 // Allows editing: notas, quien_recibio, fecha_pago, monto, metodo.
-// If monto changes, monto_final is recomputed from existing discount settings
-// and the evento estado is re-evaluated.
+// If monto changes, monto_final is recomputed from existing discount settings.
+// evento.estado is always recalculated after any successful update.
 
 export async function PUT(request: NextRequest, { params }: Params) {
   const { id } = await params;
@@ -98,50 +98,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: updateError.message }, { status });
   }
 
-  // ── Re-evaluate evento estado if monto changed ────────────────────────────
+  // ── Recalculate evento estado ─────────────────────────────────────────────
+  // Always recalculate, not only when monto changes, so any edit that touches
+  // amount fields correctly reflects the new balance.
 
-  if (body.monto !== undefined) {
-    const { data: evento } = await supabase
-      .from("eventos")
-      .select("id, precio_total, estado")
-      .eq("id", existing.evento_id)
-      .single();
-
-    const { data: allPagos } = await supabase
-      .from("pagos")
-      .select("monto, monto_final")
-      .eq("evento_id", existing.evento_id);
-
-    if (evento && allPagos) {
-      const totalPagado = allPagos.reduce(
-        (sum, p) => sum + Number((p as { monto_final?: number | null; monto: number }).monto_final ?? p.monto),
-        0
-      );
-
-      const { data: configRaw } = await supabase
-        .from("configuraciones")
-        .select("monto_seña, tarjeta_recargos")
-        .eq("usuario_id", user.id)
-        .single();
-
-      const config = configRaw as { monto_seña?: number; tarjeta_recargos?: TarjetaRecargos } | null;
-      const montoSena = config?.monto_seña ?? 0;
-
-      let nuevoEstado: string | null = null;
-      if (totalPagado >= evento.precio_total) {
-        nuevoEstado = "completado";
-      } else if (montoSena > 0 && totalPagado >= montoSena) {
-        nuevoEstado = "confirmado";
-      }
-
-      if (nuevoEstado && nuevoEstado !== evento.estado) {
-        await supabase
-          .from("eventos")
-          .update({ estado: nuevoEstado })
-          .eq("id", existing.evento_id);
-      }
-    }
-  }
+  await recalcularEstadoEvento(supabase, existing.evento_id, user.id);
 
   return NextResponse.json(updated);
 }
@@ -179,6 +140,8 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  await recalcularEstadoEvento(supabase, pago.evento_id, user.id);
 
   return new NextResponse(null, { status: 204 });
 }

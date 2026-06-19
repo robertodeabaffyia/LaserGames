@@ -53,6 +53,39 @@ const mockPago = {
   created_at: "2026-06-01T10:00:00Z",
 };
 
+/** Shared mock chains for recalcularEstadoEvento (no estado change). */
+function recalcNoChange() {
+  mockFrom
+    .mockReturnValueOnce(
+      chain({ data: { id: "ev-1", precio_total: 3000, estado: "pendiente" }, error: null })
+    )
+    .mockReturnValueOnce(
+      chain({ data: [{ monto: 1000, monto_final: null }], error: null })
+    )
+    .mockReturnValueOnce(
+      chain({ data: { monto_seña: 2000 }, error: null })
+    );
+  // totalPagado (1000) < montoSena (2000) → pendiente = current estado → no update
+}
+
+/** Recalc chains that trigger an estado update. */
+function recalcWithUpdate(
+  currentEstado: string,
+  pagos: { monto: number; monto_final: number | null }[],
+  montoSena: number,
+  precioTotal: number
+) {
+  const updateChain = chain({ data: null, error: null });
+  mockFrom
+    .mockReturnValueOnce(
+      chain({ data: { id: "ev-1", precio_total: precioTotal, estado: currentEstado }, error: null })
+    )
+    .mockReturnValueOnce(chain({ data: pagos, error: null }))
+    .mockReturnValueOnce(chain({ data: { monto_seña: montoSena }, error: null }))
+    .mockReturnValueOnce(updateChain);
+  return updateChain;
+}
+
 function req(method: string, body?: unknown) {
   return new NextRequest(`http://localhost/api/pagos/${ID}`, {
     method,
@@ -121,7 +154,8 @@ describe("PUT /api/pagos/[id]", () => {
 
     mockFrom
       .mockReturnValueOnce(chain({ data: mockPago, error: null })) // fetch existing
-      .mockReturnValueOnce(updateChain);                            // update
+      .mockReturnValueOnce(updateChain);                            // update pago
+    recalcNoChange();
 
     const res = await PUT(req("PUT", { notas: "ref-456", quien_recibio: "María" }), params);
     expect(res.status).toBe(200);
@@ -142,6 +176,7 @@ describe("PUT /api/pagos/[id]", () => {
     mockFrom
       .mockReturnValueOnce(chain({ data: mockPago, error: null }))
       .mockReturnValueOnce(updateChain);
+    recalcNoChange();
 
     const res = await PUT(req("PUT", { fecha_pago: newDate }), params);
     expect(res.status).toBe(200);
@@ -161,15 +196,15 @@ describe("PUT /api/pagos/[id]", () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
     const updated = { ...mockPago, monto: 3000 };
     const updateChain = chain({ data: updated, error: null });
-    const mockEvento = { id: "ev-1", precio_total: 3000, estado: "pendiente" };
     const mockConfig = { monto_seña: 1000, tarjeta_recargos: {} };
 
     mockFrom
       .mockReturnValueOnce(chain({ data: mockPago, error: null }))              // fetch pago
       .mockReturnValueOnce(updateChain)                                          // update pago
-      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))            // fetch evento
-      .mockReturnValueOnce(chain({ data: [{ monto: 3000, monto_final: null }], error: null })) // all pagos
-      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))            // fetch config
+      // recalcularEstadoEvento:
+      .mockReturnValueOnce(chain({ data: { id: "ev-1", precio_total: 3000, estado: "pendiente" }, error: null }))
+      .mockReturnValueOnce(chain({ data: [{ monto: 3000, monto_final: null }], error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
       .mockReturnValueOnce(chain({ data: null, error: null }));                 // update evento
 
     const res = await PUT(req("PUT", { monto: 3000 }), params);
@@ -189,13 +224,13 @@ describe("PUT /api/pagos/[id]", () => {
       data: { ...pagoConDescuento, monto: 2000, monto_final: 1800 },
       error: null,
     });
-    const mockEvento = { id: "ev-1", precio_total: 3000, estado: "pendiente" };
     const mockConfig = { monto_seña: 1000, tarjeta_recargos: {} };
 
     mockFrom
       .mockReturnValueOnce(chain({ data: pagoConDescuento, error: null }))
       .mockReturnValueOnce(updateChain)
-      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      // recalcularEstadoEvento:
+      .mockReturnValueOnce(chain({ data: { id: "ev-1", precio_total: 3000, estado: "pendiente" }, error: null }))
       .mockReturnValueOnce(chain({ data: [{ monto: 2000, monto_final: 1800 }], error: null }))
       .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
       .mockReturnValueOnce(chain({ data: null, error: null }));
@@ -206,6 +241,28 @@ describe("PUT /api/pagos/[id]", () => {
     expect(updateChain.update).toHaveBeenCalledWith(
       expect.objectContaining({ monto: 2000, monto_final: 1800 })
     );
+  });
+
+  it("reverts completado → pendiente when monto is reduced below seña", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    const updatedPago = { ...mockPago, monto: 400 };
+    const updateChain = chain({ data: updatedPago, error: null });
+
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockPago, error: null })) // fetch pago (monto=1000)
+      .mockReturnValueOnce(updateChain);                            // update pago
+
+    const estadoUpdateChain = recalcWithUpdate(
+      "completado",
+      [{ monto: 400, monto_final: null }], // only remaining pago
+      1000,
+      3000
+    );
+
+    const res = await PUT(req("PUT", { monto: 400 }), params);
+    expect(res.status).toBe(200);
+    // 400 < 1000 (seña) → pendiente
+    expect(estadoUpdateChain.update).toHaveBeenCalledWith({ estado: "pendiente" });
   });
 
   it("returns 400 when DB update fails", async () => {
@@ -229,11 +286,12 @@ describe("DELETE /api/pagos/[id]", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 204 on successful delete", async () => {
+  it("returns 204 on successful delete and recalculates estado", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
     mockFrom
       .mockReturnValueOnce(chain({ data: { id: ID, evento_id: "ev-1" }, error: null })) // fetch
       .mockReturnValueOnce(chain({ data: null, error: null }));                          // delete
+    recalcNoChange();
 
     const res = await DELETE(req("DELETE"), params);
     expect(res.status).toBe(204);
@@ -257,5 +315,57 @@ describe("DELETE /api/pagos/[id]", () => {
 
     const res = await DELETE(req("DELETE"), params);
     expect(res.status).toBe(400);
+  });
+
+  it("reverts completado → pendiente when last payment is deleted", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { id: ID, evento_id: "ev-1" }, error: null })) // fetch
+      .mockReturnValueOnce(chain({ data: null, error: null }));                          // delete
+
+    const estadoUpdateChain = recalcWithUpdate(
+      "completado",
+      [], // no pagos left
+      1000,
+      3000
+    );
+
+    const res = await DELETE(req("DELETE"), params);
+    expect(res.status).toBe(204);
+    expect(estadoUpdateChain.update).toHaveBeenCalledWith({ estado: "pendiente" });
+  });
+
+  it("reverts completado → confirmado when partial payment covering seña remains", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { id: ID, evento_id: "ev-1" }, error: null }))
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    const estadoUpdateChain = recalcWithUpdate(
+      "completado",
+      [{ monto: 1500, monto_final: null }], // remaining pago covers seña but not total
+      1000,
+      3000
+    );
+
+    await DELETE(req("DELETE"), params);
+    expect(estadoUpdateChain.update).toHaveBeenCalledWith({ estado: "confirmado" });
+  });
+
+  it("reverts completado → pendiente when remaining payments are below seña", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { id: ID, evento_id: "ev-1" }, error: null }))
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    const estadoUpdateChain = recalcWithUpdate(
+      "completado",
+      [{ monto: 400, monto_final: null }], // below 1000 seña
+      1000,
+      3000
+    );
+
+    await DELETE(req("DELETE"), params);
+    expect(estadoUpdateChain.update).toHaveBeenCalledWith({ estado: "pendiente" });
   });
 });

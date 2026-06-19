@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Pago, PagoAuditoria } from "@/types/pagos";
 import { montoEfectivo, calcularEstadoPago } from "@/types/pagos";
 import { formatMoneda } from "@/lib/moneda";
-import { formatFechaHora } from "@/lib/fecha";
+import { formatFechaHora, isoToDatetimeLocal } from "@/lib/fecha";
 
 interface HistorialPagosProps {
   pagos: Pago[];
@@ -52,7 +52,7 @@ function EditModal({ pago, onClose }: EditModalProps) {
   const [notas, setNotas] = useState(pago.notas ?? "");
   const [quienRecibio, setQuienRecibio] = useState(pago.quien_recibio ?? "");
   const [fechaPago, setFechaPago] = useState(
-    new Date(pago.fecha_pago).toISOString().slice(0, 16)
+    isoToDatetimeLocal(pago.fecha_pago)
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -72,6 +72,26 @@ export function formatHora(value: Date | string | null | undefined): string {
 }
 
 /**
+ * Converts a UTC ISO timestamp (or a Date) to a "YYYY-MM-DDTHH:MM" string
+ * suitable for <input type="datetime-local">.
+ *
+ * Bug this prevents: using `.toISOString().slice(0, 16)` returns UTC digits,
+ * so a 14:00 payment in Argentina (UTC-3) pre-fills the form as 17:00.
+ * Using local accessors (getFullYear … getMinutes) reads the value in the
+ * machine's own timezone, matching how the browser *writes* a datetime-local
+ * value back with `new Date("YYYY-MM-DDTHH:MM").toISOString()`.
+ */
+export function isoToDatetimeLocal(value: string | Date): string {
+  const d = value instanceof Date ? value : new Date(value);
+  const year  = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day   = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const mins  = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${mins}`;
+}
+
+/**
  * Parses a dd/mm/yyyy string into a Date (local midnight).
  * Returns null for null, undefined, or strings that don't match the format.
  */

@@ -5,6 +5,7 @@ import type { TarjetaRecargos, TarjetaNombre, CuotasClave } from "@/types/config
 import { TARJETAS, CUOTAS } from "@/types/configuracion";
 import type { TipoDescuento } from "@/types/pagos";
 import { formatMoneda } from "@/lib/moneda";
+import { isoToDatetimeLocal } from "@/lib/fecha";
 
 interface PagoFormProps {
   eventoId: string;
@@ -30,7 +31,7 @@ export default function PagoForm({
   const [notas, setNotas] = useState("");
   const [quienRecibio, setQuienRecibio] = useState("");
   const [fechaPago, setFechaPago] = useState(
-    () => new Date().toISOString().slice(0, 16) // datetime-local format
+    () => isoToDatetimeLocal(new Date())
   );
   // discount state
   const [tieneDescuento, setTieneDescuento] = useState(false);

@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
     .select(
       `*,
       cliente:clientes(id, nombre, telefono),
-      paquete:paquetes(id, nombre, precio, duracion_horas, duracion_minutos, cantidad_ninos_incluidos, cantidad_adultos_incluidos)`
+      paquete:paquetes(id, nombre, precio, duracion_horas, duracion_minutos, cantidad_ninos_incluidos, cantidad_adultos_incluidos),
+      pagos(id, monto, monto_final, metodo, fecha_pago)`
     )
     .order("fecha_evento", { ascending: true });
 

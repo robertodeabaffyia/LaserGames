@@ -55,7 +55,7 @@ export interface EventoConRelaciones extends Evento {
     cantidad_ninos_incluidos: number;
     cantidad_adultos_incluidos: number;
   };
-  pagos?: { id: string; monto: number; metodo: string; fecha_pago: string }[];
+  pagos?: { id: string; monto: number; monto_final: number | null; metodo: string; fecha_pago: string }[];
 }
 
 export type EventoInsert = {

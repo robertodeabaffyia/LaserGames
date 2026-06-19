@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { EVENTO_ESTADOS, type EventoEstado, type EventoConRelaciones } from "@/types/eventos";
 import { formatMoneda } from "@/lib/moneda";
 import { formatFechaHora } from "@/lib/fecha";
+import { montoEfectivo } from "@/types/pagos";
 
 const ESTADO_COLORS: Record<EventoEstado, string> = {
   pendiente: "bg-yellow-900/40 text-yellow-300 border-yellow-700",
@@ -129,6 +130,7 @@ export default function EventoList({ onDelete, refreshKey }: EventoListProps) {
                 <th className="px-4 py-3">Paquete</th>
                 <th className="px-4 py-3">Estado</th>
                 <th className="px-4 py-3 text-right">Total</th>
+                <th className="px-4 py-3 text-right">Saldo</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -150,6 +152,16 @@ export default function EventoList({ onDelete, refreshKey }: EventoListProps) {
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-white">
                     {formatMoneda(ev.precio_total)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium">
+                    {(() => {
+                      const saldo = ev.precio_total - (ev.pagos ?? []).reduce((s, p) => s + montoEfectivo(p), 0);
+                      return (
+                        <span className={saldo > 0 ? "text-red-400" : "text-green-400"}>
+                          {formatMoneda(saldo)}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">

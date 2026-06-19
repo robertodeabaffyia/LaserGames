@@ -14,7 +14,7 @@ export async function GET() {
   // Fetch active eventos with their pagos
   const { data: eventos, error } = await supabase
     .from("eventos")
-    .select("id, precio_total, estado, nombre_festejado, fecha_evento, pagos(monto)")
+    .select("id, precio_total, estado, nombre_festejado, fecha_evento, pagos(monto, monto_final)")
     .in("estado", ACTIVE_ESTADOS)
     .order("fecha_evento", { ascending: true });
 
@@ -24,7 +24,8 @@ export async function GET() {
 
   const items = (eventos ?? []).map((ev) => {
     const total_pagado = (ev.pagos ?? []).reduce(
-      (sum: number, p: { monto: number }) => sum + Number(p.monto),
+      (sum: number, p: { monto: number; monto_final: number | null }) =>
+        sum + (p.monto_final ?? p.monto),
       0
     );
     const saldo_pendiente = Math.max(0, ev.precio_total - total_pagado);

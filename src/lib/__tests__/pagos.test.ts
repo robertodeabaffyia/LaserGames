@@ -67,9 +67,10 @@ describe("recalcularEstadoEvento", () => {
       newEstado: "completado",
     });
 
-    await recalcularEstadoEvento(supabase, "ev-1", "user-1");
+    const result = await recalcularEstadoEvento(supabase, "ev-1", "user-1");
 
     expect(updateChain!.update).toHaveBeenCalledWith({ estado: "completado" });
+    expect(result).toBe("completado");
   });
 
   it("sets confirmado when totalPagado >= montoSena but < precio_total", async () => {
@@ -82,9 +83,10 @@ describe("recalcularEstadoEvento", () => {
       newEstado: "confirmado",
     });
 
-    await recalcularEstadoEvento(supabase, "ev-1", "user-1");
+    const result = await recalcularEstadoEvento(supabase, "ev-1", "user-1");
 
     expect(updateChain!.update).toHaveBeenCalledWith({ estado: "confirmado" });
+    expect(result).toBe("confirmado");
   });
 
   it("sets pendiente when totalPagado < montoSena", async () => {
@@ -97,9 +99,10 @@ describe("recalcularEstadoEvento", () => {
       newEstado: "pendiente",
     });
 
-    await recalcularEstadoEvento(supabase, "ev-1", "user-1");
+    const result = await recalcularEstadoEvento(supabase, "ev-1", "user-1");
 
     expect(updateChain!.update).toHaveBeenCalledWith({ estado: "pendiente" });
+    expect(result).toBe("pendiente");
   });
 
   it("sets pendiente when all payments are deleted (empty list)", async () => {
@@ -112,9 +115,10 @@ describe("recalcularEstadoEvento", () => {
       newEstado: "pendiente",
     });
 
-    await recalcularEstadoEvento(supabase, "ev-1", "user-1");
+    const result = await recalcularEstadoEvento(supabase, "ev-1", "user-1");
 
     expect(updateChain!.update).toHaveBeenCalledWith({ estado: "pendiente" });
+    expect(result).toBe("pendiente");
   });
 
   it("does NOT update when estado is already correct", async () => {
@@ -126,10 +130,11 @@ describe("recalcularEstadoEvento", () => {
       expectUpdate: false,
     });
 
-    await recalcularEstadoEvento(supabase, "ev-1", "user-1");
+    const result = await recalcularEstadoEvento(supabase, "ev-1", "user-1");
 
     // Only 3 from() calls (evento, pagos, config) — no 4th update call
     expect(mockFrom).toHaveBeenCalledTimes(3);
+    expect(result).toBe("completado");
   });
 
   it("uses monto_final over monto when discount exists", async () => {
@@ -142,10 +147,11 @@ describe("recalcularEstadoEvento", () => {
       newEstado: "confirmado",
     });
 
-    await recalcularEstadoEvento(supabase, "ev-1", "user-1");
+    const result = await recalcularEstadoEvento(supabase, "ev-1", "user-1");
 
     // 1800 >= 1000 (seña) but < 3000 → confirmado
     expect(updateChain!.update).toHaveBeenCalledWith({ estado: "confirmado" });
+    expect(result).toBe("confirmado");
   });
 
   it("treats missing seña config (0) as no-seña threshold", async () => {
@@ -158,17 +164,18 @@ describe("recalcularEstadoEvento", () => {
       newEstado: "pendiente",
     });
 
-    await recalcularEstadoEvento(supabase, "ev-1", "user-1");
+    const result = await recalcularEstadoEvento(supabase, "ev-1", "user-1");
 
     // 500 < 3000 and no seña → pendiente (not confirmado)
     expect(updateChain!.update).toHaveBeenCalledWith({ estado: "pendiente" });
+    expect(result).toBe("pendiente");
   });
 
-  it("returns early without crashing when evento not found", async () => {
+  it("returns pendiente when evento not found", async () => {
     mockFrom.mockReturnValueOnce(chain({ data: null, error: { message: "not found" } }));
 
     await expect(
       recalcularEstadoEvento(supabase, "missing", "user-1")
-    ).resolves.toBeUndefined();
+    ).resolves.toBe("pendiente");
   });
 });

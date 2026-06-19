@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { PagoInsert } from "@/types/pagos";
 import type { TarjetaNombre, CuotasClave, TarjetaRecargos } from "@/types/configuracion";
+import { recalcularEstadoEvento } from "@/lib/pagos";
 
 /** GET — list pagos, optionally filtered by evento_id */
 export async function GET(request: NextRequest) {
@@ -115,16 +116,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Evento not found" }, { status: 404 });
   }
 
-  // ── Fetch config ───────────────────────────────────────────────────────────
+  // ── Fetch config (for tarjeta recargo calculation only) ────────────────────
 
   const { data: configRaw } = await supabase
     .from("configuraciones")
-    .select("*")
+    .select("tarjeta_recargos")
     .eq("usuario_id", user.id)
     .single();
 
-  const config = configRaw as { monto_seña?: number; tarjeta_recargos?: TarjetaRecargos } | null;
-  const montoSeña = config?.monto_seña ?? 0;
+  const config = configRaw as { tarjeta_recargos?: TarjetaRecargos } | null;
 
   // Calculate recargo for tarjeta payments
   let recargo_pct = 0;
@@ -134,18 +134,6 @@ export async function POST(request: NextRequest) {
     const cuotasKey = String(body.num_cuotas) as CuotasClave;
     recargo_pct = recargos[tarjetaKey]?.[cuotasKey] ?? 0;
   }
-
-  // ── Sum existing pagos using monto_final (backward-compat: fall back to monto) ──
-
-  const { data: existingPagos } = await supabase
-    .from("pagos")
-    .select("monto, monto_final")
-    .eq("evento_id", body.evento_id);
-
-  const totalPagadoAntes = (existingPagos ?? []).reduce(
-    (sum, p) => sum + Number((p as { monto_final?: number | null; monto: number }).monto_final ?? p.monto),
-    0
-  );
 
   // ── Insert pago ────────────────────────────────────────────────────────────
 
@@ -173,23 +161,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: pagoError.message }, { status: 400 });
   }
 
-  // ── Determine new evento status (using montoFinal for balance) ─────────────
+  // ── Recalculate evento estado via shared helper ────────────────────────────
 
-  const totalPagadoAhora = totalPagadoAntes + montoFinal;
-  let nuevoEstado: string | null = null;
-
-  if (totalPagadoAhora >= evento.precio_total) {
-    nuevoEstado = "completado";
-  } else if (totalPagadoAntes === 0 && montoFinal >= montoSeña && montoSeña > 0) {
-    nuevoEstado = "confirmado";
-  }
-
-  if (nuevoEstado && nuevoEstado !== evento.estado) {
-    await supabase
-      .from("eventos")
-      .update({ estado: nuevoEstado })
-      .eq("id", body.evento_id);
-  }
+  const eventoEstado = await recalcularEstadoEvento(supabase, body.evento_id, user.id);
 
   // ── Auto-create ingreso movimiento_caja (using montoFinal) ─────────────────
 
@@ -208,7 +182,7 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json(
-    { ...pago, evento_estado: nuevoEstado ?? evento.estado },
+    { ...pago, evento_estado: eventoEstado },
     { status: 201 }
   );
 }

@@ -4,9 +4,10 @@
 
 /**
  * Recomputes and persists evento.estado after any payment mutation
- * (create, update, or delete).
+ * (create, update, or delete). Returns the resolved estado string so
+ * callers can include it in their response without an extra DB fetch.
  *
- * Thresholds (identical to the logic in POST /api/pagos):
+ * Thresholds:
  *   totalPagado >= precio_total                  → "completado"
  *   montoSena > 0 && totalPagado >= montoSena    → "confirmado"
  *   otherwise                                    → "pendiente"
@@ -19,21 +20,21 @@ export async function recalcularEstadoEvento(
   supabase: any,
   eventoId: string,
   userId: string
-): Promise<void> {
+): Promise<string> {
   const { data: evento } = await supabase
     .from("eventos")
     .select("id, precio_total, estado")
     .eq("id", eventoId)
     .single();
 
-  if (!evento) return;
+  if (!evento) return "pendiente";
 
   const { data: allPagos } = await supabase
     .from("pagos")
     .select("monto, monto_final")
     .eq("evento_id", eventoId);
 
-  if (!allPagos) return;
+  if (!allPagos) return evento.estado as string;
 
   const totalPagado = (
     allPagos as { monto: number; monto_final: number | null }[]
@@ -63,4 +64,6 @@ export async function recalcularEstadoEvento(
       .update({ estado: nuevoEstado })
       .eq("id", eventoId);
   }
+
+  return nuevoEstado;
 }

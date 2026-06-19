@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("movimientos_caja")
-    .select("*")
+    .select("*, evento:eventos(nombre_festejado, cliente:clientes(nombre))")
     .order("fecha", { ascending: false })
     .order("created_at", { ascending: false });
 

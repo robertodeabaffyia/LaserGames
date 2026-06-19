@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
   const { data: evento, error: eventoError } = await supabase
     .from("eventos")
-    .select("id, precio_total, estado")
+    .select("id, precio_total, estado, nombre_festejado")
     .eq("id", body.evento_id)
     .single();
 
@@ -167,17 +167,20 @@ export async function POST(request: NextRequest) {
 
   // ── Auto-create ingreso movimiento_caja (using montoFinal) ─────────────────
 
+  const nombreFestejado =
+    (evento as unknown as { nombre_festejado?: string }).nombre_festejado ?? "";
   const fechaPago = (body.fecha_pago ?? new Date().toISOString()).slice(0, 10);
   await supabase.from("movimientos_caja").insert({
     usuario_id: user.id,
     tipo: "ingreso",
     categoria: "pago_evento",
-    descripcion: `Pago evento (${body.metodo}) — evento ${body.evento_id}`,
+    descripcion: `Pago evento (${body.metodo}) — ${nombreFestejado}`,
     monto: montoFinal,
     fecha: fechaPago,
     es_repetible: false,
     frecuencia_repeticion: null,
     evento_id: body.evento_id,
+    pago_id: pago.id,
     empleado_id: null,
   });
 

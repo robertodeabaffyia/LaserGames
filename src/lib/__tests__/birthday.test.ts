@@ -6,6 +6,8 @@ import {
   isEstasSemana,
   isProximoMes,
   sortByDias,
+  filtrarClientesPorMesHijo,
+  hijosEnMes,
   type BirthdayEntry,
 } from "../birthday";
 
@@ -73,6 +75,85 @@ describe("isProximoMes", () => {
 
   it("returns false for a birthday two months away", () => {
     expect(isProximoMes("1990-07-10", 50)).toBe(false);
+  });
+});
+
+// ── filtrarClientesPorMesHijo ─────────────────────────────────────────────────
+
+describe("filtrarClientesPorMesHijo", () => {
+  const hijo = (mes: number) => ({ fecha_nacimiento: `2020-${String(mes).padStart(2, "0")}-15`, nombre: "test" });
+
+  const clientes = [
+    { id: "c1", hijos: [hijo(6), hijo(9)] },  // June + September
+    { id: "c2", hijos: [hijo(6)] },            // June only
+    { id: "c3", hijos: [hijo(12)] },           // December only
+    { id: "c4", hijos: [] },                    // no children
+  ];
+
+  it("returns all clients when mes is ''", () => {
+    expect(filtrarClientesPorMesHijo(clientes, "")).toHaveLength(4);
+  });
+
+  it("returns only clients with a child birthday in the selected month", () => {
+    const result = filtrarClientesPorMesHijo(clientes, 6);
+    expect(result.map((c) => c.id)).toEqual(expect.arrayContaining(["c1", "c2"]));
+    expect(result).toHaveLength(2);
+  });
+
+  it("excludes clients with no children", () => {
+    expect(filtrarClientesPorMesHijo(clientes, 6).map((c) => c.id)).not.toContain("c4");
+  });
+
+  it("returns empty when no child matches the month", () => {
+    expect(filtrarClientesPorMesHijo(clientes, 3)).toHaveLength(0);
+  });
+
+  it("matches a client with multiple children when only one matches", () => {
+    const result = filtrarClientesPorMesHijo(clientes, 9);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("c1");
+  });
+
+  it("does not mutate the input array", () => {
+    filtrarClientesPorMesHijo(clientes, 6);
+    expect(clientes).toHaveLength(4);
+  });
+});
+
+// ── hijosEnMes ────────────────────────────────────────────────────────────────
+
+describe("hijosEnMes", () => {
+  const hijos = [
+    { nombre: "Lucía",   fecha_nacimiento: "2019-06-19" },
+    { nombre: "Tomás",   fecha_nacimiento: "2021-06-03" },
+    { nombre: "Valentina", fecha_nacimiento: "2020-09-10" },
+  ];
+
+  it("returns [] when mes is ''", () => {
+    expect(hijosEnMes(hijos, "")).toHaveLength(0);
+  });
+
+  it("returns matching children with formatted dia", () => {
+    const result = hijosEnMes(hijos, 6);
+    expect(result).toHaveLength(2);
+    expect(result.map((h) => h.nombre)).toEqual(expect.arrayContaining(["Lucía", "Tomás"]));
+  });
+
+  it("formats dia as dd/mm", () => {
+    const result = hijosEnMes(hijos, 6);
+    const lucia = result.find((h) => h.nombre === "Lucía");
+    expect(lucia?.dia).toBe("19/06");
+  });
+
+  it("returns [] when no child matches the month", () => {
+    expect(hijosEnMes(hijos, 12)).toHaveLength(0);
+  });
+
+  it("returns a single match when only one child matches", () => {
+    const result = hijosEnMes(hijos, 9);
+    expect(result).toHaveLength(1);
+    expect(result[0].nombre).toBe("Valentina");
+    expect(result[0].dia).toBe("10/09");
   });
 });
 

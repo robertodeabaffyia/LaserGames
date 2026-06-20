@@ -16,9 +16,6 @@ export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
   const [nombre, setNombre] = useState(cliente?.nombre ?? "");
   const [telefono, setTelefono] = useState(cliente?.telefono ?? "");
   const [email, setEmail] = useState(cliente?.email ?? "");
-  const [fechaCumpleanos, setFechaCumpleanos] = useState(
-    cliente?.fecha_cumpleanos ?? ""
-  );
   const [notas, setNotas] = useState(cliente?.notas ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +48,6 @@ export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
       nombre,
       telefono: telefono || null,
       email: email || null,
-      fecha_cumpleanos: fechaCumpleanos || null,
       notas: notas || null,
     };
 
@@ -151,16 +147,6 @@ export default function ClienteForm({ cliente, onClose }: ClienteFormProps) {
             <p className="mt-1 text-xs text-red-400">{fieldErrors.email}</p>
           )}
         </div>
-      </div>
-
-      <div>
-        <label className="label">Fecha de cumpleaños</label>
-        <input
-          className="input"
-          type="date"
-          value={fechaCumpleanos}
-          onChange={(e) => setFechaCumpleanos(e.target.value)}
-        />
       </div>
 
       <div>

@@ -29,5 +29,7 @@ export interface ClientePerfil extends ClienteConHijos {
   eventos: EventoResumen[];
 }
 
-export type ClienteInsert = Omit<Cliente, "id" | "created_at" | "updated_at">;
+export type ClienteInsert = Omit<Cliente, "id" | "created_at" | "updated_at" | "fecha_cumpleanos"> & {
+  fecha_cumpleanos?: string | null;
+};
 export type ClienteUpdate = Partial<ClienteInsert>;

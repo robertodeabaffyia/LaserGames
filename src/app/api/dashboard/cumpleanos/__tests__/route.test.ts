@@ -36,8 +36,8 @@ afterAll(() => {
 beforeEach(() => jest.clearAllMocks());
 
 describe("GET /api/dashboard/cumpleanos", () => {
-  it("classifies a client birthday 3 days away as esta_semana", async () => {
-    // 2026-05-24 = 3 days from fixed date
+  it("does NOT include the client's own birthday (only children)", async () => {
+    // Client has a birthday 3 days away — should be ignored
     mockFrom.mockReturnValue(
       chain({
         data: [
@@ -50,14 +50,37 @@ describe("GET /api/dashboard/cumpleanos", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.esta_semana).toHaveLength(0);
+    expect(body.proximo_mes).toHaveLength(0);
+  });
+
+  it("classifies a child birthday this week as esta_semana with parent name", async () => {
+    // 2026-05-24 = 3 days from fixed date
+    mockFrom.mockReturnValue(
+      chain({
+        data: [
+          {
+            id: "c1",
+            nombre: "Laura",
+            fecha_cumpleanos: null,
+            hijos: [{ id: "h1", nombre: "Sofía", fecha_nacimiento: "2018-05-24" }],
+          },
+        ],
+        error: null,
+      })
+    );
+
+    const res = await GET();
+    const body = await res.json();
     expect(body.esta_semana).toHaveLength(1);
-    expect(body.esta_semana[0].nombre).toBe("Laura");
-    expect(body.esta_semana[0].tipo).toBe("cliente");
+    expect(body.esta_semana[0].nombre).toBe("Sofía");
+    expect(body.esta_semana[0].tipo).toBe("hijo");
+    expect(body.esta_semana[0].cliente_nombre).toBe("Laura");
     expect(body.proximo_mes).toHaveLength(0);
   });
 
   it("classifies a child birthday next month as proximo_mes", async () => {
-    // Next month from May 21 = June → fecha 1990-06-15
+    // Next month from May 21 = June → fecha 2018-06-15
     mockFrom.mockReturnValue(
       chain({
         data: [
@@ -81,12 +104,16 @@ describe("GET /api/dashboard/cumpleanos", () => {
     expect(body.esta_semana).toHaveLength(0);
   });
 
-  it("returns empty lists when no upcoming birthdays", async () => {
-    // Birthday far in the future (not this week, not next month)
+  it("returns empty lists when no children have upcoming birthdays", async () => {
     mockFrom.mockReturnValue(
       chain({
         data: [
-          { id: "c1", nombre: "Pedro", fecha_cumpleanos: "1985-09-10", hijos: [] },
+          {
+            id: "c1",
+            nombre: "Pedro",
+            fecha_cumpleanos: "1985-09-10",
+            hijos: [{ id: "h1", nombre: "Mateo", fecha_nacimiento: "2019-09-10" }],
+          },
         ],
         error: null,
       })
@@ -96,6 +123,31 @@ describe("GET /api/dashboard/cumpleanos", () => {
     const body = await res.json();
     expect(body.esta_semana).toHaveLength(0);
     expect(body.proximo_mes).toHaveLength(0);
+  });
+
+  it("excludes client's own birthday even when fecha_cumpleanos is set and a child is also upcoming", async () => {
+    // Client birthday esta semana (should be excluded); child birthday next month (included)
+    mockFrom.mockReturnValue(
+      chain({
+        data: [
+          {
+            id: "c1",
+            nombre: "Marta",
+            fecha_cumpleanos: "1985-05-23", // 2 days away — would have been included before
+            hijos: [{ id: "h1", nombre: "Lucas", fecha_nacimiento: "2020-06-10" }],
+          },
+        ],
+        error: null,
+      })
+    );
+
+    const res = await GET();
+    const body = await res.json();
+    // Only Lucas in proximo_mes; Marta's own birthday must NOT appear
+    expect(body.proximo_mes).toHaveLength(1);
+    expect(body.proximo_mes[0].nombre).toBe("Lucas");
+    const allEntries = [...body.esta_semana, ...body.proximo_mes];
+    expect(allEntries.every((e: { tipo: string }) => e.tipo === "hijo")).toBe(true);
   });
 
   it("returns 500 on DB error", async () => {
@@ -109,8 +161,15 @@ describe("GET /api/dashboard/cumpleanos", () => {
     mockFrom.mockReturnValue(
       chain({
         data: [
-          { id: "c1", nombre: "Z7", fecha_cumpleanos: "1990-05-27", hijos: [] }, // 6 days
-          { id: "c2", nombre: "Z2", fecha_cumpleanos: "1990-05-23", hijos: [] }, // 2 days
+          {
+            id: "c1",
+            nombre: "Ana",
+            fecha_cumpleanos: null,
+            hijos: [
+              { id: "h1", nombre: "Zeta", fecha_nacimiento: "2019-05-27" }, // 6 days
+              { id: "h2", nombre: "Alfa", fecha_nacimiento: "2020-05-23" }, // 2 days
+            ],
+          },
         ],
         error: null,
       })
@@ -118,7 +177,7 @@ describe("GET /api/dashboard/cumpleanos", () => {
 
     const res = await GET();
     const body = await res.json();
-    expect(body.esta_semana[0].nombre).toBe("Z2");
-    expect(body.esta_semana[1].nombre).toBe("Z7");
+    expect(body.esta_semana[0].nombre).toBe("Alfa");
+    expect(body.esta_semana[1].nombre).toBe("Zeta");
   });
 });

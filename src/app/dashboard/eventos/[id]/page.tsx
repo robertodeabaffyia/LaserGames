@@ -118,8 +118,9 @@ export default function EventoDetailPage() {
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white">{evento.nombre_festejado}</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
+          <h1 className="text-2xl font-bold text-white">{evento.cliente?.nombre ?? "—"}</h1>
+          <p className="text-sm text-gray-400 mt-0.5">{evento.nombre_festejado}</p>
+          <p className="text-xs text-gray-500 mt-0.5">
             {formatFechaHora(evento.fecha_evento)}
           </p>
           <p className={`text-sm font-semibold mt-1.5 ${PAGO_STATUS_COLORS[estadoPago]}`}>

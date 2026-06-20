@@ -89,6 +89,32 @@ export function eventoFechaToLocal(isoTimestamp: string): { fecha: string; hora:
   };
 }
 
+/**
+ * Client-side filter: returns events matching the given month and/or year,
+ * sorted by fecha_evento ascending. Uses LOCAL date accessors so the result
+ * matches the formatted date the user sees on screen.
+ *
+ * @param mes  1-12 or "" for "any month"
+ * @param año  full year (e.g. 2026) or "" for "any year"
+ */
+export function filtrarEventos<T extends { fecha_evento: string }>(
+  eventos: T[],
+  mes: number | "",
+  año: number | ""
+): T[] {
+  return eventos
+    .filter((e) => {
+      const d = new Date(e.fecha_evento);
+      const eMes = d.getMonth() + 1;
+      const eAño = d.getFullYear();
+      if (mes !== "" && año !== "") return eMes === mes && eAño === año;
+      if (mes !== "") return eMes === mes;
+      if (año !== "") return eAño === año;
+      return true;
+    })
+    .sort((a, b) => new Date(a.fecha_evento).getTime() - new Date(b.fecha_evento).getTime());
+}
+
 export interface EventoSlot {
   id: string;
   fecha_evento: string; // ISO timestamptz

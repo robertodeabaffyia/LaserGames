@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { calcularPrecioTotal, fechaEventoToISO, combineFechaHora, eventoFechaToLocal, hayConflicto, type EventoSlot } from "../eventos";
+import { calcularPrecioTotal, fechaEventoToISO, combineFechaHora, eventoFechaToLocal, hayConflicto, filtrarEventos, type EventoSlot } from "../eventos";
 
 describe("calcularPrecioTotal", () => {
   it("returns paquete price when no extras (all within included counts)", () => {
@@ -299,6 +299,72 @@ describe("calcularPrecioTotal — price is independent of fecha_evento", () => {
     const updated = { ...baseParams, precioPaquete: 5000, ninosIncluidos: 10, adultosIncluidos: 5 };
     // No extras (8<=10, 3<=5) → 5000-200 = 4800
     expect(calcularPrecioTotal(updated)).toBe(4800);
+  });
+});
+
+// ── filtrarEventos ────────────────────────────────────────────────────────────
+// All month/year expectations are derived from local Date accessors so the
+// tests pass in any timezone (tests mirror the implementation).
+
+describe("filtrarEventos", () => {
+  // Noon UTC avoids date-shifting at timezone boundaries (±12h offset max)
+  const ev1 = { id: "1", fecha_evento: "2026-06-15T12:00:00Z" }; // June 2026
+  const ev2 = { id: "2", fecha_evento: "2026-06-20T12:00:00Z" }; // June 2026
+  const ev3 = { id: "3", fecha_evento: "2026-07-10T12:00:00Z" }; // July 2026
+  const ev4 = { id: "4", fecha_evento: "2025-06-01T12:00:00Z" }; // June 2025
+
+  // Derive expected values from the same local accessors the implementation uses
+  const dJun2026 = new Date("2026-06-15T12:00:00Z");
+  const mesJun  = dJun2026.getMonth() + 1;
+  const año2026 = dJun2026.getFullYear();
+  const mesJul  = new Date("2026-07-10T12:00:00Z").getMonth() + 1;
+  const año2025 = new Date("2025-06-01T12:00:00Z").getFullYear();
+
+  const todos = [ev1, ev2, ev3, ev4];
+
+  it("returns all events when mes and año are both empty", () => {
+    expect(filtrarEventos(todos, "", "")).toHaveLength(4);
+  });
+
+  it("filters by mes only (across all years)", () => {
+    const result = filtrarEventos(todos, mesJun, "");
+    // ev1 (Jun 2026), ev2 (Jun 2026), ev4 (Jun 2025)
+    expect(result).toHaveLength(3);
+    expect(result.map((e) => e.id)).toEqual(expect.arrayContaining(["1", "2", "4"]));
+  });
+
+  it("filters by año only (all months in that year)", () => {
+    const result = filtrarEventos(todos, "", año2026);
+    // ev1, ev2 (Jun 2026), ev3 (Jul 2026)
+    expect(result).toHaveLength(3);
+    expect(result.map((e) => e.id)).not.toContain("4");
+  });
+
+  it("filters by mes + año (specific month in specific year)", () => {
+    const result = filtrarEventos(todos, mesJun, año2026);
+    expect(result).toHaveLength(2);
+    expect(result.map((e) => e.id)).toEqual(expect.arrayContaining(["1", "2"]));
+  });
+
+  it("returns empty array when nothing matches", () => {
+    expect(filtrarEventos(todos, mesJul, año2025)).toHaveLength(0);
+  });
+
+  it("sorts results by fecha_evento ascending regardless of input order", () => {
+    const mixed = [ev3, ev1, ev4, ev2];
+    const result = filtrarEventos(mixed, "", "");
+    const times = result.map((e) => new Date(e.fecha_evento).getTime());
+    expect(times).toEqual([...times].sort((a, b) => a - b));
+  });
+
+  it("preserves all properties on each event (generic pass-through)", () => {
+    const rich = { id: "x", fecha_evento: "2026-06-15T12:00:00Z", nombre: "Mateo", precio: 1000 };
+    const result = filtrarEventos([rich], mesJun, año2026);
+    expect(result[0]).toStrictEqual(rich);
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(filtrarEventos([], mesJun, año2026)).toHaveLength(0);
   });
 });
 

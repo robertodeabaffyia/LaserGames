@@ -25,22 +25,6 @@ export async function GET() {
   const proximo_mes: BirthdayEntry[] = [];
 
   for (const c of clientes ?? []) {
-    // Client's own birthday
-    if (c.fecha_cumpleanos) {
-      const dias = diasHastaProximo(c.fecha_cumpleanos);
-      const entry: BirthdayEntry = {
-        id: c.id,
-        nombre: c.nombre,
-        fecha: c.fecha_cumpleanos,
-        tipo: "cliente",
-        cliente_id: c.id,
-        dias_restantes: dias,
-      };
-      if (isEstasSemana(dias)) esta_semana.push(entry);
-      else if (isProximoMes(c.fecha_cumpleanos, dias)) proximo_mes.push(entry);
-    }
-
-    // Children's birthdays
     for (const h of c.hijos ?? []) {
       const dias = diasHastaProximo(h.fecha_nacimiento);
       const entry: BirthdayEntry = {

@@ -1,24 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { diasHastaProximo } from "@/lib/birthday";
 import type { ClienteConHijos } from "@/types/clientes";
 
 interface ClienteCardProps {
   cliente: ClienteConHijos;
   onEdit: (cliente: ClienteConHijos) => void;
   onDelete: (id: string) => void;
+  /** Pre-computed by the parent when a birthday-month filter is active. */
+  hijosDestacados?: { nombre: string; dia: string }[];
 }
 
-export default function ClienteCard({ cliente, onEdit, onDelete }: ClienteCardProps) {
-  const diasCumple =
-    cliente.fecha_cumpleanos != null
-      ? diasHastaProximo(cliente.fecha_cumpleanos)
-      : null;
-
-  const cumpleProximo =
-    diasCumple !== null && diasCumple <= 30;
-
+export default function ClienteCard({ cliente, onEdit, onDelete, hijosDestacados }: ClienteCardProps) {
   return (
     <div className="bg-gray-800 rounded-xl p-5 border border-gray-700 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
@@ -33,24 +26,6 @@ export default function ClienteCard({ cliente, onEdit, onDelete }: ClienteCardPr
             <p className="text-gray-500 text-xs truncate">{cliente.email}</p>
           )}
         </div>
-
-        {cumpleProximo && diasCumple !== null && (
-          <span
-            className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
-              diasCumple === 0
-                ? "bg-yellow-500/20 text-yellow-400"
-                : diasCumple <= 7
-                ? "bg-orange-500/20 text-orange-400"
-                : "bg-indigo-500/20 text-indigo-400"
-            }`}
-          >
-            {diasCumple === 0
-              ? "🎂 Hoy"
-              : diasCumple === 1
-              ? "🎂 Mañana"
-              : `🎂 ${diasCumple}d`}
-          </span>
-        )}
       </div>
 
       {cliente.hijos.length > 0 && (
@@ -58,6 +33,17 @@ export default function ClienteCard({ cliente, onEdit, onDelete }: ClienteCardPr
           👶 {cliente.hijos.length}{" "}
           {cliente.hijos.length === 1 ? "hijo/a" : "hijos/as"}
         </p>
+      )}
+
+      {hijosDestacados && hijosDestacados.length > 0 && (
+        <div className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-3 py-2 space-y-0.5">
+          <p className="text-xs font-semibold text-indigo-400 mb-1">🎂 Cumpleaños este mes</p>
+          {hijosDestacados.map(({ nombre, dia }) => (
+            <p key={nombre + dia} className="text-xs text-gray-300">
+              {nombre} — {dia}
+            </p>
+          ))}
+        </div>
       )}
 
       {cliente.notas && (

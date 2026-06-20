@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ClienteConHijos, Cliente } from "@/types/clientes";
+import { filtrarClientesPorMesHijo, hijosEnMes } from "@/lib/birthday";
 import ClienteCard from "./ClienteCard";
 import ClienteForm from "./ClienteForm";
+
+const MESES_LABEL = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
 
 export default function ClienteList() {
   const [clientes, setClientes] = useState<ClienteConHijos[]>([]);
@@ -11,6 +17,7 @@ export default function ClienteList() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [colegio, setColegio] = useState("");
+  const [mesFilter, setMesFilter] = useState<number | "">("");
   const [editing, setEditing] = useState<Cliente | null>(null);
   const [showForm, setShowForm] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -37,6 +44,12 @@ export default function ClienteList() {
   useEffect(() => {
     fetchClientes();
   }, []);
+
+  // Client-side birthday-month filter applied on top of text/colegio results
+  const clientesFiltrados = useMemo(
+    () => filtrarClientesPorMesHijo(clientes, mesFilter),
+    [clientes, mesFilter]
+  );
 
   function handleSearch(value: string) {
     setQ(value);
@@ -93,6 +106,16 @@ export default function ClienteList() {
             value={colegio}
             onChange={(e) => handleColegioFilter(e.target.value)}
           />
+          <select
+            className="input min-w-[160px]"
+            value={mesFilter}
+            onChange={(e) => setMesFilter(e.target.value === "" ? "" : Number(e.target.value))}
+          >
+            <option value="">Mes de cumpleaños</option>
+            {MESES_LABEL.map((label, i) => (
+              <option key={i + 1} value={i + 1}>{label}</option>
+            ))}
+          </select>
           <button
             onClick={handleNew}
             className="shrink-0 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2.5 transition-colors"
@@ -110,19 +133,20 @@ export default function ClienteList() {
         </div>
       )}
 
-      {!loading && !error && clientes.length === 0 && (
+      {!loading && !error && clientesFiltrados.length === 0 && (
         <p className="text-sm text-gray-500">
           {q ? `Sin resultados para "${q}".` : "No hay clientes registrados."}
         </p>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {clientes.map((c) => (
+        {clientesFiltrados.map((c) => (
           <ClienteCard
             key={c.id}
             cliente={c}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            hijosDestacados={mesFilter !== "" ? hijosEnMes(c.hijos, mesFilter) : undefined}
           />
         ))}
       </div>

@@ -55,3 +55,34 @@ export function isProximoMes(fecha: string, diasRestantes: number): boolean {
 export function sortByDias(entries: BirthdayEntry[]): BirthdayEntry[] {
   return [...entries].sort((a, b) => a.dias_restantes - b.dias_restantes);
 }
+
+/**
+ * Returns only clients that have at least one hijo whose birthday month
+ * matches `mes` (1-12). Returns all clients unchanged when mes is "".
+ */
+export function filtrarClientesPorMesHijo<T extends { hijos: { fecha_nacimiento: string }[] }>(
+  clientes: T[],
+  mes: number | ""
+): T[] {
+  if (mes === "") return clientes;
+  return clientes.filter((c) =>
+    c.hijos.some((h) => parseInt(h.fecha_nacimiento.split("-")[1], 10) === mes)
+  );
+}
+
+/**
+ * Returns the children whose birthday month matches `mes` (1-12), formatted
+ * as `{ nombre, dia }` where `dia` is "dd/mm". Returns [] when mes is "".
+ */
+export function hijosEnMes<T extends { fecha_nacimiento: string; nombre: string }>(
+  hijos: T[],
+  mes: number | ""
+): { nombre: string; dia: string }[] {
+  if (mes === "") return [];
+  return hijos
+    .filter((h) => parseInt(h.fecha_nacimiento.split("-")[1], 10) === mes)
+    .map((h) => {
+      const [, mm, dd] = h.fecha_nacimiento.split("-");
+      return { nombre: h.nombre, dia: `${dd}/${mm}` };
+    });
+}

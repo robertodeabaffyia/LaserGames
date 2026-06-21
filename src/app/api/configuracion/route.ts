@@ -36,6 +36,8 @@ export async function GET() {
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 365,
     httpOnly: true,
+    // Only sent over HTTPS in production; left off in dev so http://localhost works.
+    secure: process.env.NODE_ENV === "production",
   });
   return res;
 }
@@ -115,6 +117,8 @@ export async function PUT(request: NextRequest) {
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 365,
     httpOnly: true,
+    // Only sent over HTTPS in production; left off in dev so http://localhost works.
+    secure: process.env.NODE_ENV === "production",
   });
   return res;
 }

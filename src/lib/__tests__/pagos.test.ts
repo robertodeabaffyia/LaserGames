@@ -26,7 +26,8 @@ function mockRecalc({
   pagos = [] as { monto: number; monto_final: number | null }[],
   montoSena = 0,
   expectUpdate = false,
-  newEstado = "pendiente",
+  // newEstado is accepted at call sites as inline documentation of the expected
+  // outcome (asserted separately in each `it`); it is not consumed here.
 }: {
   estado?: string;
   precioTotal?: number;

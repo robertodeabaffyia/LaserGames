@@ -148,6 +148,8 @@ export async function proxy(request: NextRequest) {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
+      // Only sent over HTTPS in production; left off in dev so http://localhost works.
+      secure: process.env.NODE_ENV === "production",
     });
   }
 

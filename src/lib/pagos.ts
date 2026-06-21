@@ -15,8 +15,10 @@
  * The estado is always written when it differs from the current value,
  * including downgrades (e.g. completado → pendiente after a deletion).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function recalcularEstadoEvento(
+  // Supabase client — typed as any to match the helper pattern in auth-helpers.ts
+  // (full typing requires the generated Database types, which aren't wired up here).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   eventoId: string,
   userId: string

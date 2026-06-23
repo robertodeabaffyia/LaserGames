@@ -21,6 +21,13 @@ jest.mock("@/lib/pagos", () => ({
 }));
 const mockRecalcularEstadoEvento = recalcularEstadoEvento as jest.Mock;
 
+// getUserRol is mocked to avoid an extra mockFrom call in every test.
+// Default: "general" (non-admin). Individual tests override for admin scenarios.
+jest.mock("@/lib/auth-helpers", () => {
+  const actual = jest.requireActual("@/lib/auth-helpers");
+  return { ...actual, getUserRol: jest.fn().mockResolvedValue("general") };
+});
+
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c: any = {};
@@ -33,7 +40,11 @@ function chain(result: unknown) {
 }
 
 const mockEvento = { id: "ev-1", precio_total: 3000, estado: "pendiente", nombre_festejado: "Mateo" };
-const mockConfig = { monto_seña: 1000, tarjeta_recargos: { VISA: { "1": 0, "3": 3.5 } } };
+const mockConfig = {
+  monto_seña: 1000,
+  tarjeta_recargos: { VISA: { "1": 0, "3": 3.5 } },
+  recargo_transferencia_pct: 2.5,
+};
 const mockPago = {
   id: "pago-1",
   evento_id: "ev-1",
@@ -469,6 +480,196 @@ describe("POST /api/pagos — quien_recibio", () => {
     await POST(postReq(base));
     expect(insertChain.insert).toHaveBeenCalledWith(
       expect.objectContaining({ quien_recibio: null })
+    );
+  });
+});
+
+// ── POST — transferencia recargo ──────────────────────────────────────────────
+
+describe("POST /api/pagos — transferencia recargo", () => {
+  function setupMocks(pagoData = mockPago) {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(chain({ data: pagoData, error: null }))
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+  }
+
+  it("stores recargo_pct from config for transferencia", async () => {
+    const insertChain = chain({
+      data: { ...mockPago, metodo: "transferencia", recargo_pct: 2.5 },
+      error: null,
+    });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(insertChain)
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    const res = await POST(
+      postReq({ evento_id: "ev-1", monto: 1000, metodo: "transferencia" })
+    );
+    expect(res.status).toBe(201);
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ metodo: "transferencia", recargo_pct: 2.5 })
+    );
+  });
+
+  it("stores recargo_pct = 0 for efectivo regardless of config", async () => {
+    const insertChain = chain({ data: mockPago, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(insertChain)
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    await POST(postReq({ evento_id: "ev-1", monto: 1000, metodo: "efectivo" }));
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ recargo_pct: 0 })
+    );
+  });
+
+  it("stores 0 when config has no recargo_transferencia_pct", async () => {
+    const configSinRecargo = { ...mockConfig, recargo_transferencia_pct: 0 };
+    const insertChain = chain({ data: mockPago, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: configSinRecargo, error: null }))
+      .mockReturnValueOnce(insertChain)
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    await POST(postReq({ evento_id: "ev-1", monto: 1000, metodo: "transferencia" }));
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ recargo_pct: 0 })
+    );
+  });
+
+  it("tarjeta recargo is unaffected by recargo_transferencia_pct", async () => {
+    const insertChain = chain({
+      data: { ...mockPago, metodo: "tarjeta", recargo_pct: 3.5 },
+      error: null,
+    });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(insertChain)
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    await POST(
+      postReq({ evento_id: "ev-1", monto: 1000, metodo: "tarjeta", tipo_tarjeta: "VISA", num_cuotas: 3 })
+    );
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ recargo_pct: 3.5 })
+    );
+  });
+
+  it("monto_final remains null for transferencia with recargo only (no discount)", async () => {
+    const insertChain = chain({ data: mockPago, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(insertChain)
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    await POST(postReq({ evento_id: "ev-1", monto: 1000, metodo: "transferencia" }));
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ monto_final: null })
+    );
+  });
+});
+
+// ── POST — admin recargo override ─────────────────────────────────────────────
+
+describe("POST /api/pagos — admin recargo override", () => {
+  const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+
+  it("non-admin sending recargo_pct receives 403", async () => {
+    (getUserRol as jest.Mock).mockResolvedValueOnce("general");
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }));
+
+    const res = await POST(
+      postReq({ evento_id: "ev-1", monto: 1000, metodo: "efectivo", recargo_pct: 5 })
+    );
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/administrador/);
+  });
+
+  it("supervisor sending recargo_pct receives 403", async () => {
+    (getUserRol as jest.Mock).mockResolvedValueOnce("supervisor");
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }));
+
+    const res = await POST(
+      postReq({ evento_id: "ev-1", monto: 1000, metodo: "transferencia", recargo_pct: 1 })
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("admin can override recargo_pct to a custom value", async () => {
+    (getUserRol as jest.Mock).mockResolvedValueOnce("admin");
+    const insertChain = chain({ data: { ...mockPago, recargo_pct: 7 }, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(insertChain)
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    const res = await POST(
+      postReq({ evento_id: "ev-1", monto: 1000, metodo: "transferencia", recargo_pct: 7 })
+    );
+    expect(res.status).toBe(201);
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ recargo_pct: 7 })
+    );
+  });
+
+  it("admin can set recargo_pct to 0 (waive surcharge)", async () => {
+    (getUserRol as jest.Mock).mockResolvedValueOnce("admin");
+    const insertChain = chain({ data: mockPago, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(insertChain)
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    const res = await POST(
+      postReq({ evento_id: "ev-1", monto: 1000, metodo: "transferencia", recargo_pct: 0 })
+    );
+    expect(res.status).toBe(201);
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ recargo_pct: 0 })
+    );
+  });
+
+  it("admin sending negative recargo_pct receives 400", async () => {
+    (getUserRol as jest.Mock).mockResolvedValueOnce("admin");
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }));
+
+    const res = await POST(
+      postReq({ evento_id: "ev-1", monto: 1000, metodo: "transferencia", recargo_pct: -1 })
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/non-negative/);
+  });
+
+  it("omitting recargo_pct uses config value regardless of role", async () => {
+    // Even when user is admin, not sending recargo_pct → config value is used
+    (getUserRol as jest.Mock).mockResolvedValueOnce("admin");
+    const insertChain = chain({ data: { ...mockPago, recargo_pct: 2.5 }, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(insertChain)
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    await POST(postReq({ evento_id: "ev-1", monto: 1000, metodo: "transferencia" }));
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ recargo_pct: 2.5 })
     );
   });
 });

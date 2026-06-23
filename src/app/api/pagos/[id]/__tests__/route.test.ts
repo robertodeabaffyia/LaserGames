@@ -291,6 +291,57 @@ describe("PUT /api/pagos/[id]", () => {
     const res = await PUT(req("PUT", { notas: "x" }), params);
     expect(res.status).toBe(400);
   });
+
+  // ── recargo_pct editing ─────────────────────────────────────────────────────
+
+  it("admin can update recargo_pct", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    const updateChain = chain({ data: { ...mockPago, recargo_pct: 5 }, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockPago, error: null }))
+      .mockReturnValueOnce(updateChain);
+    recalcNoChange();
+
+    const res = await PUT(req("PUT", { recargo_pct: 5 }), params);
+    expect(res.status).toBe(200);
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ recargo_pct: 5 })
+    );
+  });
+
+  it("non-admin sending recargo_pct receives 403", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    const { getUserRol } = jest.requireMock("@/lib/auth-helpers");
+    (getUserRol as jest.Mock).mockResolvedValueOnce("supervisor");
+    mockFrom.mockReturnValueOnce(chain({ data: mockPago, error: null }));
+
+    const res = await PUT(req("PUT", { recargo_pct: 5 }), params);
+    expect(res.status).toBe(403);
+  });
+
+  it("admin sending negative recargo_pct receives 400", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    mockFrom.mockReturnValueOnce(chain({ data: mockPago, error: null }));
+
+    const res = await PUT(req("PUT", { recargo_pct: -1 }), params);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/non-negative/);
+  });
+
+  it("admin can set recargo_pct = 0 (waive surcharge)", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    const updateChain = chain({ data: { ...mockPago, recargo_pct: 0 }, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockPago, error: null }))
+      .mockReturnValueOnce(updateChain);
+    recalcNoChange();
+
+    const res = await PUT(req("PUT", { recargo_pct: 0 }), params);
+    expect(res.status).toBe(200);
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ recargo_pct: 0 })
+    );
+  });
 });
 
 // ── DELETE /api/pagos/[id] ────────────────────────────────────────────────────

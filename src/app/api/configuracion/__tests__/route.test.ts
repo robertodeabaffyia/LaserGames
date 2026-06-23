@@ -28,6 +28,7 @@ const mockConfig = {
   usuario_id: "user-1",
   monto_seña: 1000,
   tarjeta_recargos: { VISA: { "1": 0, "3": 3.5 } },
+  recargo_transferencia_pct: 2.5,
   precio_nino_adicional: 150,
   precio_adulto_adicional: 100,
   google_maps_url: "https://maps.google.com/?cid=123",
@@ -73,6 +74,15 @@ describe("GET /api/configuracion", () => {
     const body = await res.json();
     expect(body.precio_nino_adicional).toBe(150);
     expect(body.precio_adulto_adicional).toBe(100);
+  });
+
+  it("returns recargo_transferencia_pct", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    mockFrom.mockReturnValue(chain({ data: mockConfig, error: null }));
+
+    const res = await GET();
+    const body = await res.json();
+    expect(body.recargo_transferencia_pct).toBe(2.5);
   });
 
   it("returns 404 when no config exists", async () => {
@@ -190,6 +200,42 @@ describe("PUT /api/configuracion", () => {
     const upsertArg = upsertChain.upsert.mock.calls[0][0];
     expect(upsertArg).not.toHaveProperty("precio_nino_adicional");
     expect(upsertArg).not.toHaveProperty("precio_adulto_adicional");
+  });
+
+  it("saves recargo_transferencia_pct when provided", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    const upsertChain = chain({ data: mockConfig, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }))
+      .mockReturnValueOnce(upsertChain);
+
+    const res = await PUT(req("PUT", { ...validBody, recargo_transferencia_pct: 3.5 }));
+    expect(res.status).toBe(200);
+    expect(upsertChain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ recargo_transferencia_pct: 3.5 }),
+      expect.any(Object)
+    );
+  });
+
+  it("omits recargo_transferencia_pct from upsert when not provided", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    const upsertChain = chain({ data: mockConfig, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }))
+      .mockReturnValueOnce(upsertChain);
+
+    await PUT(req("PUT", validBody));
+    const upsertArg = upsertChain.upsert.mock.calls[0][0];
+    expect(upsertArg).not.toHaveProperty("recargo_transferencia_pct");
+  });
+
+  it("returns 400 when recargo_transferencia_pct is negative", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    mockFrom.mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }));
+
+    const res = await PUT(req("PUT", { ...validBody, recargo_transferencia_pct: -1 }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/recargo_transferencia_pct/);
   });
 
   it("returns 400 when monto_seña is missing", async () => {

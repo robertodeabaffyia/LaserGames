@@ -37,6 +37,8 @@ export type PagoInsert = {
   tiene_descuento?: boolean;
   tipo_descuento?: TipoDescuento | null;
   valor_descuento?: number | null;
+  // surcharge override: only accepted from admin users; server derives from config otherwise
+  recargo_pct?: number;
 };
 
 export type PagoUpdate = {
@@ -45,6 +47,8 @@ export type PagoUpdate = {
   fecha_pago?: string;
   monto?: number;
   metodo?: MetodoPago;
+  // surcharge update: admin-only; server rejects if sender is not admin
+  recargo_pct?: number;
 };
 
 /** Effective amount credited toward the event balance. */

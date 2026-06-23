@@ -57,6 +57,20 @@ export async function PUT(request: NextRequest, { params }: Params) {
   if (body.fecha_pago !== undefined) updates.fecha_pago = body.fecha_pago;
   if (body.metodo !== undefined) updates.metodo = body.metodo;
 
+  // recargo_pct can only be changed by an admin
+  if (body.recargo_pct !== undefined) {
+    if (!hasMinRole(rol, "admin")) {
+      return forbiddenResponse("Solo administradores pueden modificar el recargo");
+    }
+    if (typeof body.recargo_pct !== "number" || body.recargo_pct < 0) {
+      return NextResponse.json(
+        { error: "recargo_pct must be a non-negative number" },
+        { status: 400 }
+      );
+    }
+    updates.recargo_pct = body.recargo_pct;
+  }
+
   if (body.monto !== undefined) {
     if (body.monto <= 0) {
       return NextResponse.json({ error: "monto must be > 0" }, { status: 400 });

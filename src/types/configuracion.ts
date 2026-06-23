@@ -21,6 +21,8 @@ export interface Configuracion {
   usuario_id: string;
   monto_seña: number;
   tarjeta_recargos: TarjetaRecargos;
+  /** Surcharge % added on top for bank transfer payments (e.g. 2.5 = 2.5%) */
+  recargo_transferencia_pct: number;
   /** Price charged per extra child above paquete.cantidad_ninos_incluidos */
   precio_nino_adicional: number;
   /** Price charged per extra adult above paquete.cantidad_adultos_incluidos */
@@ -34,6 +36,7 @@ export interface Configuracion {
 export type ConfiguracionUpdate = {
   monto_seña: number;
   tarjeta_recargos: TarjetaRecargos;
+  recargo_transferencia_pct?: number;
   precio_nino_adicional?: number;
   precio_adulto_adicional?: number;
   google_maps_url?: string | null;

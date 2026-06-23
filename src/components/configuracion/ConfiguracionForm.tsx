@@ -21,6 +21,7 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
   const [precioNinoAdicional, setPrecioNinoAdicional] = useState<string>("0");
   const [precioAdultoAdicional, setPrecioAdultoAdicional] = useState<string>("0");
   const [googleMapsUrl, setGoogleMapsUrl] = useState<string>("");
+  const [recargoTransferenciaPct, setRecargoTransferenciaPct] = useState<string>("0");
   const [recargos, setRecargos] = useState<TarjetaRecargos>(DEFAULT_RECARGOS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,6 +37,7 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
           setPrecioNinoAdicional(String(data.precio_nino_adicional ?? 0));
           setPrecioAdultoAdicional(String(data.precio_adulto_adicional ?? 0));
           setGoogleMapsUrl(data.google_maps_url ?? "");
+          setRecargoTransferenciaPct(String(data.recargo_transferencia_pct ?? 0));
           setRecargos(data.tarjeta_recargos ?? DEFAULT_RECARGOS);
         }
         setLoading(false);
@@ -67,6 +69,7 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
         precio_adulto_adicional: Number(precioAdultoAdicional),
         google_maps_url: googleMapsUrl.trim() || null,
         tarjeta_recargos: recargos,
+        recargo_transferencia_pct: Number(recargoTransferenciaPct),
       }),
     });
 
@@ -191,6 +194,34 @@ export default function ConfiguracionForm({ onSuccess }: ConfiguracionFormProps)
             Verificar link ↗
           </a>
         )}
+      </div>
+
+      {/* Recargo por transferencia */}
+      <div>
+        <h2 className="text-base font-semibold text-white mb-1">
+          Recargo por transferencia (%)
+        </h2>
+        <p className="text-xs text-gray-500 mb-3">
+          Porcentaje adicional cobrado al cliente cuando paga por transferencia bancaria.
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            className="input w-28 text-center"
+            min={0}
+            max={50}
+            step="0.1"
+            value={recargoTransferenciaPct}
+            onChange={(e) => setRecargoTransferenciaPct(e.target.value)}
+          />
+          <span className="text-gray-500 text-sm">%</span>
+          {Number(recargoTransferenciaPct) > 0 && (
+            <span className="text-xs text-amber-400">
+              Un pago de $1.000 cobrado por transferencia equivale a{" "}
+              <strong>${(1000 * (1 + Number(recargoTransferenciaPct) / 100)).toFixed(2)}</strong>
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Recargos por tarjeta */}

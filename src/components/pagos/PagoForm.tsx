@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import type { TarjetaRecargos, TarjetaNombre, CuotasClave } from "@/types/configuracion";
 import { TARJETAS, CUOTAS } from "@/types/configuracion";
-import type { TipoDescuento } from "@/types/pagos";
+import type { TipoDescuento, MetodoPago } from "@/types/pagos";
 import { formatMoneda } from "@/lib/moneda";
 import { isoToDatetimeLocal } from "@/lib/fecha";
 
@@ -25,7 +25,7 @@ export default function PagoForm({
   const saldo = Math.max(0, precioTotal - totalPagado);
 
   const [monto, setMonto] = useState<string>(String(saldo));
-  const [metodo, setMetodo] = useState<"efectivo" | "tarjeta" | "transferencia">("efectivo");
+  const [metodo, setMetodo] = useState<MetodoPago>("efectivo");
   const [tipoTarjeta, setTipoTarjeta] = useState<TarjetaNombre>("VISA");
   const [numCuotas, setNumCuotas] = useState<CuotasClave>("1");
   const [notas, setNotas] = useState("");
@@ -37,20 +37,57 @@ export default function PagoForm({
   const [tieneDescuento, setTieneDescuento] = useState(false);
   const [tipoDescuento, setTipoDescuento] = useState<TipoDescuento>("porcentaje");
   const [valorDescuento, setValorDescuento] = useState<string>("");
+  // config-loaded values
+  const [recargos, setRecargos] = useState<TarjetaRecargos>({});
+  const [recargoTransferenciaPct, setRecargoTransferenciaPct] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
+  // admin recargo override: null = use config value, string = manual value
+  const [recargoOverride, setRecargoOverride] = useState<string | null>(null);
   // misc
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recargos, setRecargos] = useState<TarjetaRecargos>({});
 
   useEffect(() => {
-    fetch("/api/configuracion")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setRecargos(d.tarjeta_recargos ?? {}));
+    Promise.all([
+      fetch("/api/configuracion").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/usuarios/me").then((r) => (r.ok ? r.json() : null)),
+    ]).then(([cfg, me]) => {
+      if (cfg) {
+        setRecargos(cfg.tarjeta_recargos ?? {});
+        setRecargoTransferenciaPct(cfg.recargo_transferencia_pct ?? 0);
+      }
+      if (me?.rol === "admin") setIsAdmin(true);
+    });
   }, []);
 
-  // Live recargo preview
+  // Config-derived recargo for the currently selected metodo/tarjeta/cuotas
+  const configRecargoPct: number =
+    metodo === "tarjeta"
+      ? (recargos[tipoTarjeta]?.[numCuotas] ?? 0)
+      : metodo === "transferencia"
+        ? recargoTransferenciaPct
+        : 0;
+
+  // Effective recargo: admin override takes precedence if set
   const recargoPct =
-    metodo === "tarjeta" ? (recargos[tipoTarjeta]?.[numCuotas] ?? 0) : 0;
+    isAdmin && recargoOverride !== null
+      ? Math.max(0, Number(recargoOverride) || 0)
+      : configRecargoPct;
+
+  // Reset override when the payment method, card type, or cuotas changes
+  function handleMetodoChange(m: MetodoPago) {
+    setMetodo(m);
+    setRecargoOverride(null);
+  }
+  function handleTipoTarjetaChange(t: TarjetaNombre) {
+    setTipoTarjeta(t);
+    setRecargoOverride(null);
+  }
+  function handleNumCuotasChange(c: CuotasClave) {
+    setNumCuotas(c);
+    setRecargoOverride(null);
+  }
+
   const montoNum = Number(monto) || 0;
   const totalConRecargo = montoNum * (1 + recargoPct / 100);
 
@@ -86,6 +123,9 @@ export default function PagoForm({
         ...(tieneDescuento
           ? { tipo_descuento: tipoDescuento, valor_descuento: valorDescuentoNum }
           : {}),
+        // Admin sends the effective recargo so the server can persist the override.
+        // Non-admins omit this field; the server derives it from config.
+        ...(isAdmin ? { recargo_pct: recargoPct } : {}),
       }),
     });
 
@@ -98,6 +138,10 @@ export default function PagoForm({
 
     onSuccess();
   }
+
+  // Value shown in the admin recargo input (override if set, else config value)
+  const adminRecargoDisplayValue =
+    recargoOverride !== null ? recargoOverride : String(configRecargoPct);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -128,7 +172,7 @@ export default function PagoForm({
           <select
             className="input"
             value={metodo}
-            onChange={(e) => setMetodo(e.target.value as typeof metodo)}
+            onChange={(e) => handleMetodoChange(e.target.value as MetodoPago)}
           >
             <option value="efectivo">Efectivo</option>
             <option value="tarjeta">Tarjeta</option>
@@ -160,7 +204,7 @@ export default function PagoForm({
         </div>
       </div>
 
-      {/* Tarjeta details */}
+      {/* ── Tarjeta details ──────────────────────────────────────────────────────── */}
       {metodo === "tarjeta" && (
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -168,7 +212,7 @@ export default function PagoForm({
             <select
               className="input"
               value={tipoTarjeta}
-              onChange={(e) => setTipoTarjeta(e.target.value as TarjetaNombre)}
+              onChange={(e) => handleTipoTarjetaChange(e.target.value as TarjetaNombre)}
             >
               {TARJETAS.map((t) => (
                 <option key={t} value={t}>{t}</option>
@@ -180,22 +224,42 @@ export default function PagoForm({
             <select
               className="input"
               value={numCuotas}
-              onChange={(e) => setNumCuotas(e.target.value as CuotasClave)}
+              onChange={(e) => handleNumCuotasChange(e.target.value as CuotasClave)}
             >
               {CUOTAS.map((c) => (
                 <option key={c} value={c}>{c === "1" ? "Contado" : `${c} cuotas`}</option>
               ))}
             </select>
           </div>
-          {recargoPct > 0 && (
-            <div className="col-span-2 rounded-lg bg-amber-900/30 border border-amber-700 px-4 py-2.5 text-sm text-amber-300">
-              Recargo {recargoPct}%: el cliente paga{" "}
-              <span className="font-semibold">
-                {formatMoneda(totalConRecargo)}
-              </span>
+
+          {/* Recargo preview / admin override — cards */}
+          {(configRecargoPct > 0 || isAdmin) && (
+            <div className="col-span-2">
+              <RecargoSection
+                isAdmin={isAdmin}
+                configRecargoPct={configRecargoPct}
+                adminRecargoDisplayValue={adminRecargoDisplayValue}
+                recargoPct={recargoPct}
+                montoNum={montoNum}
+                totalConRecargo={totalConRecargo}
+                onRecargoChange={setRecargoOverride}
+              />
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Transferencia recargo ─────────────────────────────────────────────── */}
+      {metodo === "transferencia" && (configRecargoPct > 0 || isAdmin) && (
+        <RecargoSection
+          isAdmin={isAdmin}
+          configRecargoPct={configRecargoPct}
+          adminRecargoDisplayValue={adminRecargoDisplayValue}
+          recargoPct={recargoPct}
+          montoNum={montoNum}
+          totalConRecargo={totalConRecargo}
+          onRecargoChange={setRecargoOverride}
+        />
       )}
 
       {/* ── Descuento ──────────────────────────────────────────────────────────── */}
@@ -313,5 +377,55 @@ export default function PagoForm({
         </div>
       </div>
     </form>
+  );
+}
+
+// ── Shared recargo section (used for both tarjeta and transferencia) ──────────
+
+interface RecargoSectionProps {
+  isAdmin: boolean;
+  configRecargoPct: number;
+  adminRecargoDisplayValue: string;
+  recargoPct: number;
+  montoNum: number;
+  totalConRecargo: number;
+  onRecargoChange: (value: string) => void;
+}
+
+function RecargoSection({
+  isAdmin,
+  configRecargoPct,
+  adminRecargoDisplayValue,
+  recargoPct,
+  montoNum,
+  totalConRecargo,
+  onRecargoChange,
+}: RecargoSectionProps) {
+  return (
+    <div className="space-y-2">
+      {isAdmin ? (
+        <div className="flex items-center gap-3">
+          <label className="label whitespace-nowrap">Recargo (%)</label>
+          <input
+            type="number"
+            className="input w-24 text-center"
+            min={0}
+            max={100}
+            step="0.1"
+            value={adminRecargoDisplayValue}
+            onChange={(e) => onRecargoChange(e.target.value)}
+          />
+          <span className="text-xs text-gray-500">
+            Config: {configRecargoPct}%
+          </span>
+        </div>
+      ) : null}
+      {recargoPct > 0 && montoNum > 0 && (
+        <div className="rounded-lg bg-amber-900/30 border border-amber-700 px-4 py-2.5 text-sm text-amber-300">
+          Recargo {recargoPct}%: el cliente paga{" "}
+          <span className="font-semibold">{formatMoneda(totalConRecargo)}</span>
+        </div>
+      )}
+    </div>
   );
 }

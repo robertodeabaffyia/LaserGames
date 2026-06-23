@@ -90,6 +90,15 @@ export async function PUT(request: NextRequest) {
       { status: 400 }
     );
   }
+  if (
+    body.recargo_transferencia_pct !== undefined &&
+    (typeof body.recargo_transferencia_pct !== "number" || body.recargo_transferencia_pct < 0)
+  ) {
+    return NextResponse.json(
+      { error: "recargo_transferencia_pct must be a non-negative number" },
+      { status: 400 }
+    );
+  }
 
   const { data, error } = await supabase
     .from("configuraciones")
@@ -98,6 +107,9 @@ export async function PUT(request: NextRequest) {
         usuario_id: user.id,
         monto_seña: body.monto_seña,
         tarjeta_recargos: body.tarjeta_recargos,
+        ...(body.recargo_transferencia_pct !== undefined && {
+          recargo_transferencia_pct: body.recargo_transferencia_pct,
+        }),
         ...(body.precio_nino_adicional !== undefined && { precio_nino_adicional: body.precio_nino_adicional }),
         ...(body.precio_adulto_adicional !== undefined && { precio_adulto_adicional: body.precio_adulto_adicional }),
         ...(body.google_maps_url !== undefined && { google_maps_url: body.google_maps_url ?? null }),

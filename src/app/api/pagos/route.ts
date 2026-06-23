@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser, unauthorizedResponse, getUserRol, hasMinRole } from "@/lib/auth-helpers";
 import type { PagoInsert } from "@/types/pagos";
 import type { TarjetaNombre, CuotasClave, TarjetaRecargos } from "@/types/configuracion";
 import { recalcularEstadoEvento } from "@/lib/pagos";
@@ -8,13 +9,8 @@ import { recalcularEstadoEvento } from "@/lib/pagos";
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
 
-  // ── Auth guard ────────────────────────────────────────────────────────────
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
 
   const { searchParams } = new URL(request.url);
   const evento_id = searchParams.get("evento_id");
@@ -32,17 +28,14 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(data);
 }
 
-/** POST — record a payment with optional discount, updating evento status */
+/** POST — record a payment with optional discount and surcharge, updating evento status */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await requireUser(supabase);
+  if (!user) return unauthorizedResponse();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const rol = await getUserRol(supabase, user.id);
 
   let body: PagoInsert;
   try {
@@ -116,23 +109,45 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Evento not found" }, { status: 404 });
   }
 
-  // ── Fetch config (for tarjeta recargo calculation only) ────────────────────
+  // ── Fetch config for recargo calculation ──────────────────────────────────
 
   const { data: configRaw } = await supabase
     .from("configuraciones")
-    .select("tarjeta_recargos")
+    .select("tarjeta_recargos, recargo_transferencia_pct")
     .eq("usuario_id", user.id)
     .single();
 
-  const config = configRaw as { tarjeta_recargos?: TarjetaRecargos } | null;
+  const config = configRaw as {
+    tarjeta_recargos?: TarjetaRecargos;
+    recargo_transferencia_pct?: number;
+  } | null;
 
-  // Calculate recargo for tarjeta payments
+  // Derive recargo_pct from config based on metodo
   let recargo_pct = 0;
   if (body.metodo === "tarjeta" && body.tipo_tarjeta && body.num_cuotas) {
     const recargos = (config?.tarjeta_recargos ?? {}) as TarjetaRecargos;
     const tarjetaKey = body.tipo_tarjeta as TarjetaNombre;
     const cuotasKey = String(body.num_cuotas) as CuotasClave;
     recargo_pct = recargos[tarjetaKey]?.[cuotasKey] ?? 0;
+  } else if (body.metodo === "transferencia") {
+    recargo_pct = config?.recargo_transferencia_pct ?? 0;
+  }
+
+  // Admin override: only admins may send a custom recargo_pct
+  if (body.recargo_pct !== undefined) {
+    if (!hasMinRole(rol, "admin")) {
+      return NextResponse.json(
+        { error: "Solo administradores pueden modificar el recargo" },
+        { status: 403 }
+      );
+    }
+    if (typeof body.recargo_pct !== "number" || body.recargo_pct < 0) {
+      return NextResponse.json(
+        { error: "recargo_pct must be a non-negative number" },
+        { status: 400 }
+      );
+    }
+    recargo_pct = body.recargo_pct;
   }
 
   // ── Insert pago ────────────────────────────────────────────────────────────

@@ -26,6 +26,10 @@ const ADMIN_NAV = [
   { href: "/admin/notificaciones", label: "Notificaciones", icon: "🔔" },
 ];
 
+const ESCAPE_NAV = [
+  { href: "/dashboard/escape/configuracion", label: "Configuración", icon: "⚙️" },
+];
+
 function NavLink({ href, icon, label }: { href: string; icon: string; label: string }) {
   const pathname = usePathname();
   const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
@@ -86,6 +90,19 @@ export default function Sidebar() {
         {isSupervisorOrAbove && SUPERVISOR_NAV.map((item) => (
           <NavLink key={item.href} {...item} />
         ))}
+
+        {isSupervisorOrAbove && (
+          <>
+            <div className="pt-4 pb-1 px-3">
+              <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
+                Escape Room
+              </p>
+            </div>
+            {ESCAPE_NAV.map((item) => (
+              <NavLink key={item.href} {...item} />
+            ))}
+          </>
+        )}
 
         {isAdmin && (
           <>

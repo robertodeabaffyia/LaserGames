@@ -1,3 +1,5 @@
+import type { TarjetaRecargos } from "@/types/configuracion";
+
 export const ESCAPE_PRECIO_MIN_CANTIDAD = 2;
 export const ESCAPE_PRECIO_MAX_CANTIDAD = 10;
 
@@ -18,6 +20,13 @@ export interface EscapeConfig {
   precio_sala_completa: number;
   created_at: string;
   updated_at: string;
+  /**
+   * Card surcharges, read-only here: sourced from the birthday
+   * `configuraciones` table and shared with the Escape Room module.
+   * There is no escape_config.tarjeta_recargos column — edit them from
+   * Configuración (cumpleaños) instead.
+   */
+  tarjeta_recargos: TarjetaRecargos;
 }
 
 export type EscapeConfigUpdate = {

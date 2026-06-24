@@ -56,13 +56,40 @@ describe("GET /api/escape/config", () => {
 
   it("returns the singleton config", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-    mockFrom.mockReturnValue(chain({ data: mockConfig, error: null }));
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(chain({ data: { tarjeta_recargos: {} }, error: null }));
 
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.duracion_bloque_min).toBe(90);
     expect(body.recargo_transferencia_pct).toBe(2.5);
+  });
+
+  it("returns tarjeta_recargos read from the birthday configuraciones table", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    const sharedRecargos = { VISA: { "1": 0, "3": 3.5 } };
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(chain({ data: { tarjeta_recargos: sharedRecargos }, error: null }));
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.tarjeta_recargos).toEqual(sharedRecargos);
+  });
+
+  it("defaults tarjeta_recargos to {} when the user has no configuracion row", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(chain({ data: null, error: { code: "PGRST116" } }));
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.tarjeta_recargos).toEqual({});
   });
 
   it("returns 404 when no config row exists", async () => {

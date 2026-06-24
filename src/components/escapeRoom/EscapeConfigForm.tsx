@@ -6,7 +6,9 @@ import {
   ESCAPE_PRECIO_MIN_CANTIDAD,
   ESCAPE_PRECIO_MAX_CANTIDAD,
   type EscapePrecioPersona,
+  type EscapeConfig,
 } from "@/types/escapeRoom";
+import { TARJETAS, CUOTAS, type TarjetaRecargos } from "@/types/configuracion";
 
 const CANTIDADES = Array.from(
   { length: ESCAPE_PRECIO_MAX_CANTIDAD - ESCAPE_PRECIO_MIN_CANTIDAD + 1 },
@@ -21,6 +23,7 @@ export default function EscapeConfigForm() {
   const [recargoTransferenciaPct, setRecargoTransferenciaPct] = useState("0");
   const [precioSalaCompleta, setPrecioSalaCompleta] = useState("0");
   const [precios, setPrecios] = useState<Record<number, string>>({});
+  const [tarjetaRecargos, setTarjetaRecargos] = useState<TarjetaRecargos>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,7 +35,7 @@ export default function EscapeConfigForm() {
       fetch("/api/escape/config").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/escape/precios").then((r) => (r.ok ? r.json() : [])),
       fetch("/api/usuarios/me").then((r) => (r.ok ? r.json() : null)),
-    ]).then(([cfg, precioRows, me]: [Record<string, unknown> | null, EscapePrecioPersona[], { rol?: string } | null]) => {
+    ]).then(([cfg, precioRows, me]: [EscapeConfig | null, EscapePrecioPersona[], { rol?: string } | null]) => {
       if (me?.rol === "admin") setIsAdmin(true);
       if (cfg) {
         setHoraInicio(String(cfg.hora_inicio_reservas).slice(0, 5));
@@ -41,6 +44,7 @@ export default function EscapeConfigForm() {
         setSenaMinima(String(cfg.sena_minima));
         setRecargoTransferenciaPct(String(cfg.recargo_transferencia_pct));
         setPrecioSalaCompleta(String(cfg.precio_sala_completa));
+        setTarjetaRecargos(cfg.tarjeta_recargos ?? {});
       }
       const map: Record<number, string> = {};
       for (const row of precioRows) {
@@ -195,6 +199,47 @@ export default function EscapeConfigForm() {
             disabled={!isAdmin}
             required
           />
+        </div>
+      </div>
+
+      {/* Recargos por tarjeta — read-only, shared with Configuración (cumpleaños) */}
+      <div>
+        <h2 className="text-base font-semibold text-white mb-1">
+          Recargos por tarjeta (%)
+        </h2>
+        <p className="text-xs text-gray-500 mb-4">
+          Los recargos por tarjeta se configuran en{" "}
+          <a href="/admin/configuracion" className="text-indigo-400 hover:text-indigo-300 underline">
+            Configuración (cumpleaños)
+          </a>{" "}
+          y aplican también acá.
+        </p>
+
+        <div className="overflow-x-auto rounded-xl border border-gray-800 opacity-80">
+          <table className="w-full text-sm">
+            <thead className="border-b border-gray-800">
+              <tr className="text-left text-xs text-gray-400">
+                <th className="px-4 py-3 font-medium">Tarjeta</th>
+                {CUOTAS.map((c) => (
+                  <th key={c} className="px-4 py-3 font-medium text-center">
+                    {c === "1" ? "Contado" : `${c} cuotas`}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800">
+              {TARJETAS.map((tarjeta) => (
+                <tr key={tarjeta}>
+                  <td className="px-4 py-3 font-medium text-white">{tarjeta}</td>
+                  {CUOTAS.map((cuota) => (
+                    <td key={cuota} className="px-4 py-3 text-center text-gray-400">
+                      {tarjetaRecargos[tarjeta]?.[cuota] ?? 0}%
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 

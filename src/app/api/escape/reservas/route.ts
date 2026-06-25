@@ -8,7 +8,7 @@ import {
 } from "@/lib/auth-helpers";
 import {
   calcularPrecioReserva,
-  generarTurnosDisponibles,
+  validarTurnoPersonalizado,
   type ReservaExistente,
 } from "@/lib/escapeRoom";
 import type { EscapeReservaInsert } from "@/types/escapeRoom";
@@ -112,19 +112,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: reservasError.message }, { status: 500 });
   }
 
-  // ── Server-side slot re-validation: never trust the client's chosen time ──
-  const turnosDisponibles = generarTurnosDisponibles({
-    fecha: body.fecha,
-    sala_id: body.sala_id,
-    horaInicio: config.hora_inicio_reservas,
-    horaFin: config.hora_fin_reservas,
-    duracionBloqueMin: config.duracion_bloque_min,
-    reservasExistentes: (reservasExistentes ?? []) as ReservaExistente[],
-  });
-
-  if (!turnosDisponibles.includes(body.hora_inicio.slice(0, 5))) {
+  // ── Server-side slot re-validation: never trust the client's chosen time.
+  // Works for both grid-suggested and freely-typed custom times — checks the
+  // [hora_inicio, hora_inicio + duracion) window against the configured
+  // horario and against every existing non-cancelled reservation in the room.
+  try {
+    validarTurnoPersonalizado({
+      fecha: body.fecha,
+      sala_id: body.sala_id,
+      horaInicio: body.hora_inicio,
+      horaInicioReservas: config.hora_inicio_reservas,
+      horaFinReservas: config.hora_fin_reservas,
+      duracionBloqueMin: config.duracion_bloque_min,
+      reservasExistentes: (reservasExistentes ?? []) as ReservaExistente[],
+    });
+  } catch (e) {
     return NextResponse.json(
-      { error: "Este turno ya no está disponible" },
+      { error: e instanceof Error ? e.message : "Este turno ya no está disponible" },
       { status: 409 }
     );
   }

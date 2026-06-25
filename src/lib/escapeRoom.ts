@@ -14,6 +14,7 @@ export type EstadoReserva = "reservada" | "completada" | "cancelada";
 
 export const ESCAPE_PRECIO_MIN_CANTIDAD = 2;
 export const ESCAPE_PRECIO_MAX_CANTIDAD = 10;
+export const ESCAPE_DURACION_BLOQUE_MIN_MINUTOS = 60;
 
 export interface CalcularPrecioReservaParams {
   modo_cobro: ModoCobro;
@@ -54,6 +55,11 @@ export function calcularPrecioReserva(params: CalcularPrecioReservaParams): numb
   return cantidad_personas * precioPorPersona;
 }
 
+/** True if horaFin is strictly later than horaInicio ("HH:MM" or "HH:MM:SS" strings). */
+export function horarioEsValido(horaInicio: string, horaFin: string): boolean {
+  return horaToMinutos(horaFin) > horaToMinutos(horaInicio);
+}
+
 function horaToMinutos(hora: string): number {
   const [h, m] = hora.slice(0, 5).split(":").map(Number);
   return h * 60 + m;
@@ -88,6 +94,27 @@ export interface GenerarTurnosDisponiblesParams {
   reservasExistentes: ReservaExistente[];
 }
 
+/** Existing reservations' start times (minutes-since-midnight) for this sala_id + fecha, cancelled ones excluded. */
+function ocupadosMinutos(
+  fecha: string,
+  sala_id: string,
+  reservasExistentes: ReservaExistente[]
+): number[] {
+  return reservasExistentes
+    .filter((r) => r.sala_id === sala_id && r.fecha === fecha && r.estado !== "cancelada")
+    .map((r) => horaToMinutos(r.hora_inicio));
+}
+
+/**
+ * True if a duracionBloqueMin-long slot starting at `inicio` (minutes) would
+ * overlap any occupied slot of the same length. Since every booking occupies
+ * exactly duracionBloqueMin, two same-length intervals overlap iff their
+ * start times are closer together than the block duration.
+ */
+function seSuperpone(inicio: number, duracionBloqueMin: number, ocupados: number[]): boolean {
+  return ocupados.some((o) => Math.abs(o - inicio) < duracionBloqueMin);
+}
+
 /**
  * Returns the available slot start times ("HH:MM") for a room/date: stepping
  * by duracionBloqueMin from horaInicio up to horaFin (a slot must fully fit
@@ -101,15 +128,59 @@ export function generarTurnosDisponibles(params: GenerarTurnosDisponiblesParams)
 
   const inicioMin = horaToMinutos(horaInicio);
   const finMin = horaToMinutos(horaFin);
-
-  const ocupados = reservasExistentes
-    .filter((r) => r.sala_id === sala_id && r.fecha === fecha && r.estado !== "cancelada")
-    .map((r) => horaToMinutos(r.hora_inicio));
+  const ocupados = ocupadosMinutos(fecha, sala_id, reservasExistentes);
 
   const turnos: string[] = [];
   for (let t = inicioMin; t + duracionBloqueMin <= finMin; t += duracionBloqueMin) {
-    const conflicto = ocupados.some((o) => Math.abs(o - t) < duracionBloqueMin);
-    if (!conflicto) turnos.push(minutosToHora(t));
+    if (!seSuperpone(t, duracionBloqueMin, ocupados)) turnos.push(minutosToHora(t));
   }
   return turnos;
+}
+
+export interface ValidarTurnoPersonalizadoParams {
+  fecha: string;
+  sala_id: string;
+  /** Candidate start time, "HH:MM" or "HH:MM:SS" — may be off the suggested grid. */
+  horaInicio: string;
+  /** "HH:MM" — from escape_config.hora_inicio_reservas */
+  horaInicioReservas: string;
+  /** "HH:MM" — from escape_config.hora_fin_reservas */
+  horaFinReservas: string;
+  duracionBloqueMin: number;
+  reservasExistentes: ReservaExistente[];
+}
+
+/**
+ * Validates an arbitrary (not necessarily grid-aligned) custom start time:
+ * the [horaInicio, horaInicio + duracionBloqueMin) slot must fit entirely
+ * within [horaInicioReservas, horaFinReservas) and must not overlap any
+ * existing non-cancelled reservation in that same room/date. Throws with a
+ * user-facing message when invalid; returns void when the slot is OK.
+ */
+export function validarTurnoPersonalizado(params: ValidarTurnoPersonalizadoParams): void {
+  const {
+    fecha,
+    sala_id,
+    horaInicio,
+    horaInicioReservas,
+    horaFinReservas,
+    duracionBloqueMin,
+    reservasExistentes,
+  } = params;
+
+  const inicio = horaToMinutos(horaInicio);
+  const fin = inicio + duracionBloqueMin;
+  const rangoInicio = horaToMinutos(horaInicioReservas);
+  const rangoFin = horaToMinutos(horaFinReservas);
+
+  if (inicio < rangoInicio || fin > rangoFin) {
+    throw new Error(
+      `El horario debe estar entre ${horaInicioReservas.slice(0, 5)} y ${horaFinReservas.slice(0, 5)}`
+    );
+  }
+
+  const ocupados = ocupadosMinutos(fecha, sala_id, reservasExistentes);
+  if (seSuperpone(inicio, duracionBloqueMin, ocupados)) {
+    throw new Error("Este horario se superpone con otra reserva existente en esa sala");
+  }
 }

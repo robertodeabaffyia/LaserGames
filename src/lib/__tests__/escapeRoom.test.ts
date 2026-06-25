@@ -4,6 +4,8 @@
 import {
   calcularPrecioReserva,
   generarTurnosDisponibles,
+  horarioEsValido,
+  validarTurnoPersonalizado,
   type ReservaExistente,
 } from "../escapeRoom";
 
@@ -202,5 +204,90 @@ describe("generarTurnosDisponibles", () => {
       reservasExistentes,
     });
     expect(turnos).toEqual(["18:00", "21:00"]);
+  });
+});
+
+describe("horarioEsValido", () => {
+  it("returns true when horaFin is later than horaInicio", () => {
+    expect(horarioEsValido("18:00", "23:00")).toBe(true);
+  });
+
+  it("returns false when horaFin equals horaInicio", () => {
+    expect(horarioEsValido("18:00", "18:00")).toBe(false);
+  });
+
+  it("returns false when horaFin is earlier than horaInicio", () => {
+    expect(horarioEsValido("23:00", "18:00")).toBe(false);
+  });
+
+  it("handles HH:MM:SS strings from Postgres TIME columns", () => {
+    expect(horarioEsValido("18:00:00", "23:00:00")).toBe(true);
+    expect(horarioEsValido("23:00:00", "18:00:00")).toBe(false);
+  });
+});
+
+describe("validarTurnoPersonalizado", () => {
+  const base = {
+    fecha: "2026-07-01",
+    sala_id: "sala-1",
+    horaInicioReservas: "18:00",
+    horaFinReservas: "23:00",
+    duracionBloqueMin: 90,
+  };
+
+  it("does not throw for a valid, non-conflicting custom time", () => {
+    expect(() =>
+      validarTurnoPersonalizado({ ...base, horaInicio: "18:45", reservasExistentes: [] })
+    ).not.toThrow();
+  });
+
+  it("throws when the custom time starts before horaInicioReservas", () => {
+    expect(() =>
+      validarTurnoPersonalizado({ ...base, horaInicio: "17:30", reservasExistentes: [] })
+    ).toThrow(/debe estar entre/);
+  });
+
+  it("throws when the slot would extend past horaFinReservas", () => {
+    expect(() =>
+      validarTurnoPersonalizado({ ...base, horaInicio: "22:00", reservasExistentes: [] })
+    ).toThrow(/debe estar entre/);
+  });
+
+  it("throws when the custom time overlaps an existing reservation, even off-grid", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "19:00", estado: "reservada" },
+    ];
+    // 18:45 + 90min = 20:15, overlaps the 19:00-20:30 existing booking
+    expect(() =>
+      validarTurnoPersonalizado({ ...base, horaInicio: "18:45", reservasExistentes })
+    ).toThrow(/se superpone/);
+  });
+
+  it("allows a custom time that exactly abuts an existing reservation with no overlap", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "19:30", estado: "reservada" },
+    ];
+    // 18:00-19:30 ends exactly when the existing 19:30 booking starts — no overlap
+    expect(() =>
+      validarTurnoPersonalizado({ ...base, horaInicio: "18:00", reservasExistentes })
+    ).not.toThrow();
+  });
+
+  it("ignores cancelled reservations when checking for overlap", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "19:00", estado: "cancelada" },
+    ];
+    expect(() =>
+      validarTurnoPersonalizado({ ...base, horaInicio: "18:45", reservasExistentes })
+    ).not.toThrow();
+  });
+
+  it("ignores reservations in a different room", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-2", fecha: "2026-07-01", hora_inicio: "19:00", estado: "reservada" },
+    ];
+    expect(() =>
+      validarTurnoPersonalizado({ ...base, horaInicio: "18:45", reservasExistentes })
+    ).not.toThrow();
   });
 });

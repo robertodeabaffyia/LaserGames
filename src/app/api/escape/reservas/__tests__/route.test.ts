@@ -193,7 +193,43 @@ describe("POST /api/escape/reservas", () => {
 
     const res = await POST(req("POST", validBody));
     expect(res.status).toBe(409);
-    expect((await res.json()).error).toMatch(/no está disponible/);
+    expect((await res.json()).error).toMatch(/se superpone/);
+  });
+
+  it("rejects a custom (off-grid) time that overlaps an existing reservation (409)", async () => {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(
+        chain({
+          data: [{ sala_id: "s1", fecha: "2026-07-01", hora_inicio: "19:00:00", estado: "reservada" }],
+          error: null,
+        })
+      );
+
+    // 18:45 + 90min = 20:15, overlaps the 19:00-20:30 existing booking
+    const res = await POST(req("POST", { ...validBody, hora_inicio: "18:45" }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/se superpone/);
+  });
+
+  it("accepts a custom (off-grid) time with no conflicts", async () => {
+    const insertChain = setupHappyPath();
+
+    const res = await POST(req("POST", { ...validBody, hora_inicio: "18:45" }));
+    expect(res.status).toBe(201);
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ hora_inicio: "18:45" })
+    );
+  });
+
+  it("rejects a custom time outside the configured horario (409)", async () => {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
+      .mockReturnValueOnce(chain({ data: [], error: null }));
+
+    const res = await POST(req("POST", { ...validBody, hora_inicio: "23:30" }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/debe estar entre/);
   });
 
   it("allows the slot when the conflicting reservation is cancelled", async () => {

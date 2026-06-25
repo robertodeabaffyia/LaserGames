@@ -2,7 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { EscapeConfigUpdate } from "@/types/escapeRoom";
 
-/** GET — return the singleton Escape Room config. */
+/**
+ * GET — return the singleton Escape Room config, plus the card surcharges
+ * (tarjeta_recargos) read from the birthday `configuraciones` table. Card
+ * surcharges are intentionally shared across both modules — they are
+ * configured once in Configuración (cumpleaños) and applied here too, so
+ * escape_config has no tarjeta_recargos column of its own.
+ */
 export async function GET() {
   const supabase = await createClient();
 
@@ -27,7 +33,16 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  const { data: configuracion } = await supabase
+    .from("configuraciones")
+    .select("tarjeta_recargos")
+    .eq("usuario_id", user.id)
+    .single();
+
+  return NextResponse.json({
+    ...data,
+    tarjeta_recargos: configuracion?.tarjeta_recargos ?? {},
+  });
 }
 
 /** PUT — update the singleton Escape Room config. Admin only. */

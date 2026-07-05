@@ -98,7 +98,7 @@ describe("POST /api/whatsapp/webhook — mensajes", () => {
       expect.objectContaining({ telefono: "5493871234567", estado: "sala" })
     );
     expect(enviarWhatsApp).toHaveBeenCalledWith(
-      "+5493871234567",
+      "5493871234567",
       expect.stringContaining("1. Qué pasó ayer")
     );
   });
@@ -124,7 +124,7 @@ describe("POST /api/whatsapp/webhook — mensajes", () => {
       })
     );
     expect(enviarWhatsApp).toHaveBeenCalledWith(
-      "+5493871234567",
+      "5493871234567",
       expect.stringContaining("dd/mm/aaaa")
     );
   });
@@ -139,7 +139,7 @@ describe("POST /api/whatsapp/webhook — mensajes", () => {
       req({ from: { number: "549387999" }, message: { content: { text: "hola" } } })
     );
     expect(res.status).toBe(200);
-    expect(enviarWhatsApp).toHaveBeenCalledWith("+549387999", expect.any(String));
+    expect(enviarWhatsApp).toHaveBeenCalledWith("549387999", expect.any(String));
   });
 
   it("returns 400 on invalid JSON", async () => {

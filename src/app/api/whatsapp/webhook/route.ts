@@ -256,7 +256,10 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const envio = await enviarWhatsApp(`+${telefono}`, resultado.respuesta);
+  // No leading "+": confirmed against the Messages API Sandbox that it
+  // expects raw digits for "to" (same as "from"), matching how inbound
+  // numbers already arrive from parseInbound.
+  const envio = await enviarWhatsApp(telefono, resultado.respuesta);
   if (!envio.ok) {
     // Surfaced two ways: Vercel's Runtime Logs (console.error) and, since
     // those logs truncate long lines in the dashboard, also persisted in

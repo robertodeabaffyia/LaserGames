@@ -258,10 +258,15 @@ export async function POST(request: NextRequest) {
 
   const envio = await enviarWhatsApp(`+${telefono}`, resultado.respuesta);
   if (!envio.ok) {
-    // Surfaced in Vercel's Runtime Logs so delivery failures (wrong "from",
-    // invalid sandbox recipient, etc.) are diagnosable without needing to
-    // trace the outbound Vonage request by hand.
+    // Surfaced two ways: Vercel's Runtime Logs (console.error) and, since
+    // those logs truncate long lines in the dashboard, also persisted in
+    // full on the conversation row so it can be read without truncation
+    // from Supabase's Table Editor.
     console.error("[whatsapp/webhook] Falló el envío de la respuesta:", envio.error);
+    await supabase
+      .from("whatsapp_conversaciones")
+      .update({ datos: { ...resultado.datos, _ultimo_error_envio: envio.error } })
+      .eq("telefono", telefono);
   }
 
   return NextResponse.json({ ok: true, respuestaEnviada: envio.ok, error: envio.ok ? undefined : envio.error });

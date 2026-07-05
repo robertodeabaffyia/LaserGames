@@ -42,16 +42,25 @@ export async function enviarEmail(
 /**
  * Send a WhatsApp message via Vonage Messages API.
  * `to` should be an E.164 phone number, e.g. "+5491112345678".
+ *
+ * VONAGE_API_HOST is an optional override used to point at the Messages API
+ * Sandbox (https://messages-sandbox.nexmo.com) during testing — the SDK
+ * defaults to the production host otherwise, so leaving this unset never
+ * changes existing production behavior.
  */
 export async function enviarWhatsApp(
   to: string,
   message: string
 ): Promise<EnvioResult> {
   try {
-    const vonage = new Vonage({
-      apiKey: process.env.VONAGE_API_KEY ?? "",
-      apiSecret: process.env.VONAGE_API_SECRET ?? "",
-    });
+    const apiHost = process.env.VONAGE_API_HOST;
+    const vonage = new Vonage(
+      {
+        apiKey: process.env.VONAGE_API_KEY ?? "",
+        apiSecret: process.env.VONAGE_API_SECRET ?? "",
+      },
+      apiHost ? { apiHost } : undefined
+    );
     const from = process.env.VONAGE_WHATSAPP_FROM ?? "14157386170";
     await vonage.messages.send(
       new WhatsAppText({ to, from, text: message })

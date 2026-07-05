@@ -7,9 +7,17 @@ import { formatMoneda } from "@/lib/moneda";
 import { formatFecha, formatHora } from "@/lib/fecha";
 
 const ESTADO_COLORS: Record<EstadoReserva, string> = {
+  pendiente_sena: "bg-amber-900/40 text-amber-300 border-amber-700",
   reservada: "bg-yellow-900/40 text-yellow-300 border-yellow-700",
   completada: "bg-green-900/40 text-green-300 border-green-700",
   cancelada: "bg-red-900/40 text-red-300 border-red-700",
+};
+
+const ESTADO_LABELS: Record<EstadoReserva, string> = {
+  pendiente_sena: "pendiente seña",
+  reservada: "reservada",
+  completada: "completada",
+  cancelada: "cancelada",
 };
 
 interface ReservaListProps {
@@ -114,7 +122,7 @@ export default function ReservaList({ onEdit, onDelete, refreshKey }: ReservaLis
           <option value="">Todos los estados</option>
           {ESTADOS_RESERVA.map((s) => (
             <option key={s} value={s}>
-              {s.charAt(0).toUpperCase() + s.slice(1)}
+              {ESTADO_LABELS[s].charAt(0).toUpperCase() + ESTADO_LABELS[s].slice(1)}
             </option>
           ))}
         </select>
@@ -167,7 +175,7 @@ export default function ReservaList({ onEdit, onDelete, refreshKey }: ReservaLis
                     <span
                       className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${ESTADO_COLORS[r.estado]}`}
                     >
-                      {r.estado}
+                      {ESTADO_LABELS[r.estado]}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-white">

@@ -68,9 +68,14 @@ export type EscapeContactoInsert = {
 };
 
 export type ModoCobro = "por_persona" | "sala_completa";
-export type EstadoReserva = "reservada" | "completada" | "cancelada";
+export type EstadoReserva = "pendiente_sena" | "reservada" | "completada" | "cancelada";
 
-export const ESTADOS_RESERVA: EstadoReserva[] = ["reservada", "completada", "cancelada"];
+export const ESTADOS_RESERVA: EstadoReserva[] = [
+  "pendiente_sena",
+  "reservada",
+  "completada",
+  "cancelada",
+];
 
 export interface EscapeReserva {
   id: string;
@@ -83,6 +88,13 @@ export interface EscapeReserva {
   precio_total: number;
   estado: EstadoReserva;
   notas: string | null;
+  /** 'manual' (panel) or 'whatsapp' (bot). */
+  origen: "manual" | "whatsapp";
+  /** Seña requerida para confirmar; null en reservas manuales sin seña. */
+  sena_monto: number | null;
+  sena_pagada: boolean;
+  mp_preference_id: string | null;
+  mp_payment_id: string | null;
   created_at: string;
   updated_at: string;
 }

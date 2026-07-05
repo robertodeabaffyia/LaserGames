@@ -257,6 +257,12 @@ export async function POST(request: NextRequest) {
   }
 
   const envio = await enviarWhatsApp(`+${telefono}`, resultado.respuesta);
+  if (!envio.ok) {
+    // Surfaced in Vercel's Runtime Logs so delivery failures (wrong "from",
+    // invalid sandbox recipient, etc.) are diagnosable without needing to
+    // trace the outbound Vonage request by hand.
+    console.error("[whatsapp/webhook] Falló el envío de la respuesta:", envio.error);
+  }
 
-  return NextResponse.json({ ok: true, respuestaEnviada: envio.ok });
+  return NextResponse.json({ ok: true, respuestaEnviada: envio.ok, error: envio.ok ? undefined : envio.error });
 }

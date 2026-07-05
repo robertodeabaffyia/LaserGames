@@ -9,6 +9,7 @@ import {
   type EscapeConfig,
 } from "@/types/escapeRoom";
 import { TARJETAS, CUOTAS, type TarjetaRecargos } from "@/types/configuracion";
+import { horarioEsValido, ESCAPE_DURACION_BLOQUE_MIN_MINUTOS } from "@/lib/escapeRoom";
 
 const CANTIDADES = Array.from(
   { length: ESCAPE_PRECIO_MAX_CANTIDAD - ESCAPE_PRECIO_MIN_CANTIDAD + 1 },
@@ -61,9 +62,19 @@ export default function EscapeConfigForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
     setError(null);
     setSuccess(false);
+
+    if (!horarioEsValido(horaInicio, horaFin)) {
+      setError("El horario \"hasta\" debe ser posterior al horario \"desde\".");
+      return;
+    }
+    if (!Number.isInteger(Number(duracionBloque)) || Number(duracionBloque) < ESCAPE_DURACION_BLOQUE_MIN_MINUTOS) {
+      setError(`La duración del bloque debe ser un entero de al menos ${ESCAPE_DURACION_BLOQUE_MIN_MINUTOS} minutos.`);
+      return;
+    }
+
+    setSaving(true);
 
     const configRes = await fetch("/api/escape/config", {
       method: "PUT",
@@ -167,14 +178,14 @@ export default function EscapeConfigForm() {
       <div>
         <h2 className="text-base font-semibold text-white mb-1">Duración del bloque</h2>
         <p className="text-xs text-gray-500 mb-3">
-          Minutos que ocupa cada reserva en el calendario de la sala.
+          Minutos que ocupa cada reserva en el calendario de la sala (mínimo {ESCAPE_DURACION_BLOQUE_MIN_MINUTOS} min).
         </p>
         <div className="flex items-center gap-2">
           <input
             type="number"
             className="input w-28 text-center"
-            min={1}
-            step="5"
+            min={ESCAPE_DURACION_BLOQUE_MIN_MINUTOS}
+            step={1}
             value={duracionBloque}
             onChange={(e) => setDuracionBloque(e.target.value)}
             disabled={!isAdmin}

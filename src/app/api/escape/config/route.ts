@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { horarioEsValido, ESCAPE_DURACION_BLOQUE_MIN_MINUTOS } from "@/lib/escapeRoom";
 import type { EscapeConfigUpdate } from "@/types/escapeRoom";
 
 /**
@@ -83,9 +84,18 @@ export async function PUT(request: NextRequest) {
       { status: 400 }
     );
   }
-  if (typeof body.duracion_bloque_min !== "number" || body.duracion_bloque_min <= 0) {
+  if (!horarioEsValido(body.hora_inicio_reservas, body.hora_fin_reservas)) {
     return NextResponse.json(
-      { error: "duracion_bloque_min must be a positive number" },
+      { error: "hora_fin_reservas debe ser posterior a hora_inicio_reservas" },
+      { status: 400 }
+    );
+  }
+  if (
+    !Number.isInteger(body.duracion_bloque_min) ||
+    body.duracion_bloque_min < ESCAPE_DURACION_BLOQUE_MIN_MINUTOS
+  ) {
+    return NextResponse.json(
+      { error: `duracion_bloque_min debe ser un entero de al menos ${ESCAPE_DURACION_BLOQUE_MIN_MINUTOS} minutos` },
       { status: 400 }
     );
   }

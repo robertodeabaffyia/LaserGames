@@ -176,6 +176,51 @@ describe("PUT /api/escape/config", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 400 when duracion_bloque_min is below 60", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    mockFrom.mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }));
+
+    const res = await PUT(req("PUT", { ...validBody, duracion_bloque_min: 59 }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/60/);
+  });
+
+  it("accepts duracion_bloque_min exactly at the 60-minute minimum", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }));
+
+    const res = await PUT(req("PUT", { ...validBody, duracion_bloque_min: 60 }));
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 400 when duracion_bloque_min is not an integer", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    mockFrom.mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }));
+
+    const res = await PUT(req("PUT", { ...validBody, duracion_bloque_min: 90.5 }));
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when hora_fin_reservas equals hora_inicio_reservas", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    mockFrom.mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }));
+
+    const res = await PUT(req("PUT", { ...validBody, hora_inicio_reservas: "18:00", hora_fin_reservas: "18:00" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/posterior/);
+  });
+
+  it("returns 400 when hora_fin_reservas is earlier than hora_inicio_reservas", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    mockFrom.mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }));
+
+    const res = await PUT(req("PUT", { ...validBody, hora_inicio_reservas: "20:00", hora_fin_reservas: "18:00" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/posterior/);
+  });
+
   it("returns 400 when sena_minima is negative", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
     mockFrom.mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }));

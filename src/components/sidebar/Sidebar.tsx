@@ -27,6 +27,7 @@ const ADMIN_NAV = [
 ];
 
 const ESCAPE_NAV = [
+  { href: "/dashboard/escape/reservas",      label: "Reservas",      icon: "🗝️" },
   { href: "/dashboard/escape/configuracion", label: "Configuración", icon: "⚙️" },
 ];
 

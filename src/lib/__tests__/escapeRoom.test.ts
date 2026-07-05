@@ -1,0 +1,206 @@
+/**
+ * @jest-environment node
+ */
+import {
+  calcularPrecioReserva,
+  generarTurnosDisponibles,
+  type ReservaExistente,
+} from "../escapeRoom";
+
+describe("calcularPrecioReserva", () => {
+  const preciosPorPersona = { 2: 5000, 3: 4500, 4: 4000, 5: 3800, 10: 3000 };
+
+  it("modo sala_completa returns the flat price regardless of cantidad_personas", () => {
+    expect(
+      calcularPrecioReserva({
+        modo_cobro: "sala_completa",
+        cantidad_personas: 6,
+        preciosPorPersona,
+        precioSalaCompleta: 30000,
+      })
+    ).toBe(30000);
+  });
+
+  it("modo sala_completa ignores preciosPorPersona entirely", () => {
+    expect(
+      calcularPrecioReserva({
+        modo_cobro: "sala_completa",
+        cantidad_personas: 2,
+        preciosPorPersona: {},
+        precioSalaCompleta: 25000,
+      })
+    ).toBe(25000);
+  });
+
+  it("modo por_persona multiplies cantidad by the configured price for that group size", () => {
+    expect(
+      calcularPrecioReserva({
+        modo_cobro: "por_persona",
+        cantidad_personas: 4,
+        preciosPorPersona,
+        precioSalaCompleta: 30000,
+      })
+    ).toBe(16000);
+  });
+
+  it("modo por_persona at the minimum boundary (2)", () => {
+    expect(
+      calcularPrecioReserva({
+        modo_cobro: "por_persona",
+        cantidad_personas: 2,
+        preciosPorPersona,
+        precioSalaCompleta: 30000,
+      })
+    ).toBe(10000);
+  });
+
+  it("modo por_persona at the maximum boundary (10)", () => {
+    expect(
+      calcularPrecioReserva({
+        modo_cobro: "por_persona",
+        cantidad_personas: 10,
+        preciosPorPersona,
+        precioSalaCompleta: 30000,
+      })
+    ).toBe(30000);
+  });
+
+  it("rejects cantidad_personas below 2 for por_persona", () => {
+    expect(() =>
+      calcularPrecioReserva({
+        modo_cobro: "por_persona",
+        cantidad_personas: 1,
+        preciosPorPersona,
+        precioSalaCompleta: 30000,
+      })
+    ).toThrow(/entre 2 y 10/);
+  });
+
+  it("rejects cantidad_personas above 10 for por_persona", () => {
+    expect(() =>
+      calcularPrecioReserva({
+        modo_cobro: "por_persona",
+        cantidad_personas: 11,
+        preciosPorPersona,
+        precioSalaCompleta: 30000,
+      })
+    ).toThrow(/entre 2 y 10/);
+  });
+
+  it("rejects a non-integer cantidad_personas for por_persona", () => {
+    expect(() =>
+      calcularPrecioReserva({
+        modo_cobro: "por_persona",
+        cantidad_personas: 3.5,
+        preciosPorPersona,
+        precioSalaCompleta: 30000,
+      })
+    ).toThrow(/entre 2 y 10/);
+  });
+
+  it("throws when there is no configured price for that exact cantidad", () => {
+    expect(() =>
+      calcularPrecioReserva({
+        modo_cobro: "por_persona",
+        cantidad_personas: 7,
+        preciosPorPersona: { 2: 5000 },
+        precioSalaCompleta: 30000,
+      })
+    ).toThrow(/No hay precio configurado/);
+  });
+});
+
+describe("generarTurnosDisponibles", () => {
+  const base = {
+    fecha: "2026-07-01",
+    sala_id: "sala-1",
+    horaInicio: "18:00",
+    horaFin: "23:00",
+    duracionBloqueMin: 90,
+  };
+
+  it("steps by duracionBloqueMin from horaInicio, stopping once a slot wouldn't fit before horaFin", () => {
+    const turnos = generarTurnosDisponibles({ ...base, reservasExistentes: [] });
+    // 18:00, 19:30, 21:00 fit (21:00+90=22:30 <= 23:00); 22:30+90=00:00 > 23:00 so excluded
+    expect(turnos).toEqual(["18:00", "19:30", "21:00"]);
+  });
+
+  it("excludes a slot that exactly matches an existing non-cancelled reservation", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "19:30", estado: "reservada" },
+    ];
+    const turnos = generarTurnosDisponibles({ ...base, reservasExistentes });
+    expect(turnos).toEqual(["18:00", "21:00"]);
+  });
+
+  it("excludes a slot within duracionBloqueMin of an existing reservation, even if not grid-aligned", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "19:00", estado: "reservada" },
+    ];
+    const turnos = generarTurnosDisponibles({ ...base, reservasExistentes });
+    // 19:00 is 60min from 18:00 and 30min from 19:30 — both within the 90min block, so both excluded
+    expect(turnos).toEqual(["21:00"]);
+  });
+
+  it("ignores cancelled reservations — that slot stays available", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "19:30", estado: "cancelada" },
+    ];
+    const turnos = generarTurnosDisponibles({ ...base, reservasExistentes });
+    expect(turnos).toEqual(["18:00", "19:30", "21:00"]);
+  });
+
+  it("ignores reservations for a different room", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-2", fecha: "2026-07-01", hora_inicio: "19:30", estado: "reservada" },
+    ];
+    const turnos = generarTurnosDisponibles({ ...base, reservasExistentes });
+    expect(turnos).toEqual(["18:00", "19:30", "21:00"]);
+  });
+
+  it("ignores reservations for a different date", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-1", fecha: "2026-07-02", hora_inicio: "19:30", estado: "reservada" },
+    ];
+    const turnos = generarTurnosDisponibles({ ...base, reservasExistentes });
+    expect(turnos).toEqual(["18:00", "19:30", "21:00"]);
+  });
+
+  it("returns an empty list when every slot is booked", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "18:00", estado: "reservada" },
+      { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "19:30", estado: "reservada" },
+      { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "21:00", estado: "reservada" },
+    ];
+    const turnos = generarTurnosDisponibles({ ...base, reservasExistentes });
+    expect(turnos).toEqual([]);
+  });
+
+  it("returns an empty list when duracionBloqueMin is zero or negative", () => {
+    expect(generarTurnosDisponibles({ ...base, duracionBloqueMin: 0, reservasExistentes: [] })).toEqual([]);
+    expect(generarTurnosDisponibles({ ...base, duracionBloqueMin: -10, reservasExistentes: [] })).toEqual([]);
+  });
+
+  it("returns an empty list when horaInicio is already past horaFin", () => {
+    const turnos = generarTurnosDisponibles({
+      ...base,
+      horaInicio: "23:30",
+      horaFin: "23:00",
+      reservasExistentes: [],
+    });
+    expect(turnos).toEqual([]);
+  });
+
+  it("handles HH:MM:SS time strings from Postgres TIME columns", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "19:30:00", estado: "reservada" },
+    ];
+    const turnos = generarTurnosDisponibles({
+      ...base,
+      horaInicio: "18:00:00",
+      horaFin: "23:00:00",
+      reservasExistentes,
+    });
+    expect(turnos).toEqual(["18:00", "21:00"]);
+  });
+});

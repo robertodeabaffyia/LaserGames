@@ -51,3 +51,60 @@ export interface EscapePrecioPersona {
 export type EscapePreciosUpdate = {
   precios: Partial<Record<number, number>>;
 };
+
+export interface EscapeContacto {
+  id: string;
+  nombre: string;
+  telefono: string | null;
+  email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type EscapeContactoInsert = {
+  nombre: string;
+  telefono?: string | null;
+  email?: string | null;
+};
+
+export type ModoCobro = "por_persona" | "sala_completa";
+export type EstadoReserva = "reservada" | "completada" | "cancelada";
+
+export const ESTADOS_RESERVA: EstadoReserva[] = ["reservada", "completada", "cancelada"];
+
+export interface EscapeReserva {
+  id: string;
+  sala_id: string;
+  contacto_id: string;
+  fecha: string;
+  hora_inicio: string;
+  cantidad_personas: number;
+  modo_cobro: ModoCobro;
+  precio_total: number;
+  estado: EstadoReserva;
+  notas: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EscapeReservaConRelaciones extends EscapeReserva {
+  sala: { id: string; nombre: string } | null;
+  contacto: { id: string; nombre: string; telefono: string | null; email: string | null } | null;
+}
+
+export type EscapeReservaInsert = {
+  sala_id: string;
+  contacto_id: string;
+  fecha: string;
+  hora_inicio: string;
+  cantidad_personas: number;
+  modo_cobro: ModoCobro;
+  notas?: string | null;
+};
+
+export type EscapeReservaUpdate = {
+  cantidad_personas?: number;
+  modo_cobro?: ModoCobro;
+  estado?: EstadoReserva;
+  notas?: string | null;
+};

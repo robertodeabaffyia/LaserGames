@@ -101,7 +101,7 @@ export default function ReservaEditModal({ reserva, onClose }: ReservaEditModalP
           >
             {ESTADOS_RESERVA.map((s) => (
               <option key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
+                {s === "pendiente_sena" ? "Pendiente seña" : s.charAt(0).toUpperCase() + s.slice(1)}
               </option>
             ))}
           </select>

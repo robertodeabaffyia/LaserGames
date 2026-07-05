@@ -10,7 +10,7 @@
  */
 
 export type ModoCobro = "por_persona" | "sala_completa";
-export type EstadoReserva = "reservada" | "completada" | "cancelada";
+export type EstadoReserva = "pendiente_sena" | "reservada" | "completada" | "cancelada";
 
 export const ESCAPE_PRECIO_MIN_CANTIDAD = 2;
 export const ESCAPE_PRECIO_MAX_CANTIDAD = 10;

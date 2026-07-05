@@ -23,6 +23,15 @@ const mockPrecios = [
   { cantidad: 4, precio_por_persona: 4000 },
 ];
 
+// The form defaults to today's LOCAL date, so mock reservations must use the
+// same date — hardcoding a date makes these tests break when it passes.
+const HOY = (() => {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+})();
+
 const noop = jest.fn();
 
 function setupFetchMock(reservasExistentes: unknown[] = [], turnos: string[] = ["18:00", "19:30"]) {
@@ -85,7 +94,7 @@ describe("ReservaForm — turno personalizado (FIX 4)", () => {
 
   it("shows an inline error for a custom time that overlaps an existing reservation", async () => {
     setupFetchMock([
-      { sala_id: "s1", fecha: "2026-06-25", hora_inicio: "19:00:00", estado: "reservada" },
+      { sala_id: "s1", fecha: HOY, hora_inicio: "19:00:00", estado: "reservada" },
     ]);
     render(<ReservaForm onSuccess={noop} />);
 
@@ -116,7 +125,7 @@ describe("ReservaForm — turno personalizado (FIX 4)", () => {
 
   it("disables submit while the custom time is invalid", async () => {
     setupFetchMock([
-      { sala_id: "s1", fecha: "2026-06-25", hora_inicio: "19:00:00", estado: "reservada" },
+      { sala_id: "s1", fecha: HOY, hora_inicio: "19:00:00", estado: "reservada" },
     ]);
     render(<ReservaForm onSuccess={noop} />);
 

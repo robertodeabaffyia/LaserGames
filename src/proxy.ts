@@ -8,14 +8,18 @@ const LAST_ACTIVITY_COOKIE = "last_activity";
 
 /**
  * API routes that bypass session validation (handle their own auth or are public):
- *   /api/cron/*          — uses Bearer CRON_SECRET
- *   /api/desuscripciones — unauthenticated unsubscribe links
- *   /api/auth/*          — Supabase Auth callbacks
+ *   /api/cron/*              — uses Bearer CRON_SECRET
+ *   /api/desuscripciones     — unauthenticated unsubscribe links
+ *   /api/auth/*              — Supabase Auth callbacks
+ *   /api/whatsapp/webhook    — Vonage inbound, uses ?token=WEBHOOK_SECRET
+ *   /api/mercadopago/webhook — MP notifications, uses ?token=WEBHOOK_SECRET
  */
 const API_EXEMPT_PREFIXES = [
   "/api/cron/",
   "/api/desuscripciones",
   "/api/auth/",
+  "/api/whatsapp/webhook",
+  "/api/mercadopago/webhook",
 ];
 
 export async function proxy(request: NextRequest) {

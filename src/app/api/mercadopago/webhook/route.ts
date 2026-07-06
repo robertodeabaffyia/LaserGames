@@ -4,17 +4,152 @@ import { authorizeWebhook } from "@/lib/webhook-auth";
 import { obtenerPago } from "@/lib/mercadopago";
 import { enviarWhatsApp } from "@/lib/notificaciones";
 import { formatMoneda } from "@/lib/moneda";
+import { recalcularEstadoEvento } from "@/lib/pagos";
+import { formatFecha } from "@/lib/fecha";
 
 /**
  * Mercado Pago payment notification webhook (Checkout Pro).
  * Configured as notification_url on each preference:
  *   POST {APP_BASE_URL}/api/mercadopago/webhook?token={WEBHOOK_SECRET}
  *
- * Security: the notification payload is NEVER trusted — only the payment id
- * is taken from it; the status and external_reference come from re-fetching
- * the payment from the MP API with our access token. Always answers 200 for
- * ignorable events so MP stops retrying.
+ * The external_reference is either an escape_reservas id or an eventos id
+ * (both UUIDs), so the handler tries the escape flow first and falls back to
+ * the birthday flow. Security: the notification payload is NEVER trusted —
+ * only the payment id is taken from it; status + external_reference come from
+ * re-fetching the payment from the MP API. Always answers 200 for ignorable
+ * events so MP stops retrying.
  */
+
+type SupabaseAdmin = ReturnType<typeof createAdminClient>;
+
+async function resetConversacion(supabase: SupabaseAdmin, telefono: string | null) {
+  if (!telefono) return;
+  await supabase
+    .from("whatsapp_conversaciones")
+    .update({ estado: "inicio", datos: {}, reserva_id: null })
+    .eq("telefono", telefono.replace(/\D/g, ""));
+}
+
+/**
+ * Confirms an escape reservation. Returns a response when the reservation
+ * exists (newly confirmed or an idempotent duplicate), or null when the
+ * external_reference isn't an escape reservation at all.
+ */
+async function confirmarEscape(
+  supabase: SupabaseAdmin,
+  externalReference: string,
+  paymentId: string
+): Promise<NextResponse | null> {
+  const { data: reserva } = await supabase
+    .from("escape_reservas")
+    .select(
+      "id, estado, sena_monto, sena_pagada, fecha, hora_inicio, contacto:escape_contactos(nombre, telefono), sala:salas_escape(nombre)"
+    )
+    .eq("id", externalReference)
+    .maybeSingle();
+
+  if (!reserva) return null;
+  if (reserva.sena_pagada) {
+    return NextResponse.json({ ok: true, skipped: true, reason: "ya confirmada" });
+  }
+
+  const { error: updateError } = await supabase
+    .from("escape_reservas")
+    .update({
+      sena_pagada: true,
+      mp_payment_id: paymentId,
+      ...(reserva.estado === "pendiente_sena" && { estado: "reservada" }),
+    })
+    .eq("id", externalReference);
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  const contacto = reserva.contacto as unknown as { nombre: string; telefono: string | null } | null;
+  const sala = reserva.sala as unknown as { nombre: string } | null;
+
+  await resetConversacion(supabase, contacto?.telefono ?? null);
+  if (contacto?.telefono) {
+    await enviarWhatsApp(
+      contacto.telefono,
+      `¡Seña recibida! ✅ Tu reserva está confirmada:\n` +
+        `🗝️ ${sala?.nombre ?? "Escape Room"}\n` +
+        `📅 ${formatFecha(reserva.fecha)} a las ${String(reserva.hora_inicio).slice(0, 5)} hs\n` +
+        `💵 Seña pagada: ${formatMoneda(reserva.sena_monto)}\n\n` +
+        `¡Te esperamos!`
+    );
+  }
+
+  return NextResponse.json({ ok: true, confirmada: true, tipo: "escape" });
+}
+
+/**
+ * Confirms a birthday event by registering the seña as a `pago` (which drives
+ * evento.estado via recalcularEstadoEvento → 'confirmado'). Returns null when
+ * the external_reference isn't an event.
+ */
+async function confirmarCumple(
+  supabase: SupabaseAdmin,
+  externalReference: string,
+  paymentId: string
+): Promise<NextResponse | null> {
+  const { data: evento } = await supabase
+    .from("eventos")
+    .select(
+      "id, sena_monto, mp_payment_id, fecha_evento, nombre_festejado, cliente:clientes(nombre, telefono), paquete:paquetes(nombre)"
+    )
+    .eq("id", externalReference)
+    .maybeSingle();
+
+  if (!evento) return null;
+  if (evento.mp_payment_id) {
+    return NextResponse.json({ ok: true, skipped: true, reason: "ya confirmada" });
+  }
+
+  // The seña becomes a real payment, so the event balance/estado stay in sync
+  // with the rest of the system (manual pagos, reports, etc.).
+  const { error: pagoError } = await supabase.from("pagos").insert({
+    evento_id: evento.id,
+    monto: evento.sena_monto ?? 0,
+    metodo: "mercadopago",
+    notas: "Seña pagada por WhatsApp (Mercado Pago)",
+  });
+  if (pagoError) {
+    return NextResponse.json({ error: pagoError.message }, { status: 500 });
+  }
+
+  await supabase.from("eventos").update({ mp_payment_id: paymentId }).eq("id", evento.id);
+
+  // Resolve the owner's usuario_id (single-tenant) so the seña threshold from
+  // configuraciones is applied when recomputing the estado.
+  const { data: cfg } = await supabase
+    .from("configuraciones")
+    .select("usuario_id")
+    .limit(1)
+    .maybeSingle();
+  const usuarioId = (cfg as { usuario_id?: string } | null)?.usuario_id ?? "";
+  await recalcularEstadoEvento(supabase, evento.id, usuarioId);
+
+  const cliente = evento.cliente as unknown as { nombre: string; telefono: string | null } | null;
+  const paquete = evento.paquete as unknown as { nombre: string } | null;
+
+  await resetConversacion(supabase, cliente?.telefono ?? null);
+  if (cliente?.telefono) {
+    await enviarWhatsApp(
+      cliente.telefono,
+      `¡Seña recibida! ✅ Tu reserva de cumpleaños está confirmada:\n` +
+        `🎉 ${paquete?.nombre ?? "Cumpleaños"}\n` +
+        `🎂 Festejado/a: ${evento.nombre_festejado}\n` +
+        `📅 ${formatFecha(evento.fecha_evento)}\n` +
+        `💵 Seña pagada: ${formatMoneda(evento.sena_monto)}\n\n` +
+        `¡Te esperamos!`
+    );
+  }
+
+  return NextResponse.json({ ok: true, confirmada: true, tipo: "cumpleanos" });
+}
+
 export async function POST(request: NextRequest) {
   if (!authorizeWebhook(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,10 +166,8 @@ export async function POST(request: NextRequest) {
     // Query-param style notifications have no JSON body — fine.
   }
 
-  const esPago =
-    body?.type === "payment" || searchParams.get("topic") === "payment";
-  const paymentId: string | undefined =
-    body?.data?.id ?? searchParams.get("id") ?? undefined;
+  const esPago = body?.type === "payment" || searchParams.get("topic") === "payment";
+  const paymentId: string | undefined = body?.data?.id ?? searchParams.get("id") ?? undefined;
 
   if (!esPago || !paymentId) {
     return NextResponse.json({ ok: true, skipped: true });
@@ -51,56 +184,14 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const reservaId = pago.externalReference;
+  const ref = pago.externalReference;
+  const pid = String(paymentId);
 
-  const { data: reserva } = await supabase
-    .from("escape_reservas")
-    .select("id, estado, sena_monto, sena_pagada, fecha, hora_inicio, contacto:escape_contactos(nombre, telefono), sala:salas_escape(nombre)")
-    .eq("id", reservaId)
-    .maybeSingle();
+  const escapeResult = await confirmarEscape(supabase, ref, pid);
+  if (escapeResult) return escapeResult;
 
-  if (!reserva) {
-    return NextResponse.json({ ok: true, skipped: true, reason: "reserva no encontrada" });
-  }
-  if (reserva.sena_pagada) {
-    // Duplicate notification — idempotent no-op.
-    return NextResponse.json({ ok: true, skipped: true, reason: "ya confirmada" });
-  }
+  const cumpleResult = await confirmarCumple(supabase, ref, pid);
+  if (cumpleResult) return cumpleResult;
 
-  const { error: updateError } = await supabase
-    .from("escape_reservas")
-    .update({
-      sena_pagada: true,
-      mp_payment_id: String(paymentId),
-      ...(reserva.estado === "pendiente_sena" && { estado: "reservada" }),
-    })
-    .eq("id", reservaId);
-
-  if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
-  }
-
-  // Reset the bot conversation and notify the customer.
-  const contacto = reserva.contacto as unknown as { nombre: string; telefono: string | null } | null;
-  const sala = reserva.sala as unknown as { nombre: string } | null;
-
-  if (contacto?.telefono) {
-    const telefonoDigits = contacto.telefono.replace(/\D/g, "");
-    await supabase
-      .from("whatsapp_conversaciones")
-      .update({ estado: "inicio", datos: {}, reserva_id: null })
-      .eq("telefono", telefonoDigits);
-
-    const [y, m, d] = String(reserva.fecha).split("-");
-    await enviarWhatsApp(
-      contacto.telefono,
-      `¡Seña recibida! ✅ Tu reserva está confirmada:\n` +
-        `🗝️ ${sala?.nombre ?? "Escape Room"}\n` +
-        `📅 ${d}/${m}/${y} a las ${String(reserva.hora_inicio).slice(0, 5)} hs\n` +
-        `💵 Seña pagada: ${formatMoneda(reserva.sena_monto)}\n\n` +
-        `¡Te esperamos!`
-    );
-  }
-
-  return NextResponse.json({ ok: true, confirmada: true });
+  return NextResponse.json({ ok: true, skipped: true, reason: "referencia no encontrada" });
 }

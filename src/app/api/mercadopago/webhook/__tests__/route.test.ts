@@ -22,7 +22,7 @@ import { obtenerPago } from "@/lib/mercadopago";
 function chain(result: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c: any = {};
-  for (const m of ["select", "update", "eq", "single", "maybeSingle"]) {
+  for (const m of ["select", "insert", "update", "eq", "limit", "single", "maybeSingle"]) {
     c[m] = jest.fn().mockReturnValue(c);
   }
   c.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
@@ -167,16 +167,81 @@ describe("POST /api/mercadopago/webhook", () => {
     expect(obtenerPago).toHaveBeenCalledWith("456");
   });
 
-  it("skips gracefully when the reserva no longer exists", async () => {
+  it("skips gracefully when neither a reserva nor an evento exists", async () => {
     (obtenerPago as jest.Mock).mockResolvedValue({
       ok: true,
       status: "approved",
-      externalReference: "r-borrada",
+      externalReference: "ref-borrada",
     });
-    mockFrom.mockReturnValueOnce(chain({ data: null, error: null }));
+    mockFrom
+      .mockReturnValueOnce(chain({ data: null, error: null })) // escape_reservas: none
+      .mockReturnValueOnce(chain({ data: null, error: null })); // eventos: none
 
     const res = await POST(req({ type: "payment", data: { id: "123" } }));
     expect(res.status).toBe(200);
     expect((await res.json()).skipped).toBe(true);
+  });
+});
+
+describe("POST /api/mercadopago/webhook — cumpleaños", () => {
+  const mockEvento = {
+    id: "ev1",
+    sena_monto: 15000,
+    mp_payment_id: null,
+    fecha_evento: "2026-08-15T19:00:00Z",
+    nombre_festejado: "Mateo",
+    cliente: { nombre: "Roberto", telefono: "+5493871234567" },
+    paquete: { nombre: "Fiesta Full" },
+  };
+
+  it("registers the seña as a pago and confirms the evento when approved", async () => {
+    (obtenerPago as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: "approved",
+      externalReference: "ev1",
+    });
+    const insertPagoChain = chain({ data: null, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: null, error: null })) // escape_reservas: none → fall through
+      .mockReturnValueOnce(chain({ data: mockEvento, error: null })) // eventos fetch
+      .mockReturnValueOnce(insertPagoChain) // insert pago
+      .mockReturnValueOnce(chain({ data: null, error: null })) // update evento mp_payment_id
+      .mockReturnValueOnce(chain({ data: { usuario_id: "u1" }, error: null })) // configuraciones
+      // recalcularEstadoEvento internals:
+      .mockReturnValueOnce(chain({ data: { id: "ev1", precio_total: 50000, estado: "pendiente" }, error: null }))
+      .mockReturnValueOnce(chain({ data: [{ monto: 15000, monto_final: null }], error: null }))
+      .mockReturnValueOnce(chain({ data: { "monto_seña": 15000 }, error: null }))
+      .mockReturnValueOnce(chain({ data: null, error: null })) // update evento estado
+      .mockReturnValueOnce(chain({ data: null, error: null })); // reset conversacion
+
+    const res = await POST(req({ type: "payment", data: { id: "789" } }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.confirmada).toBe(true);
+    expect(body.tipo).toBe("cumpleanos");
+
+    expect(insertPagoChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ evento_id: "ev1", monto: 15000, metodo: "mercadopago" })
+    );
+    expect(enviarWhatsApp).toHaveBeenCalledWith(
+      "+5493871234567",
+      expect.stringContaining("cumpleaños")
+    );
+  });
+
+  it("is idempotent when the evento already has an mp_payment_id", async () => {
+    (obtenerPago as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: "approved",
+      externalReference: "ev1",
+    });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: null, error: null })) // escape_reservas: none
+      .mockReturnValueOnce(chain({ data: { ...mockEvento, mp_payment_id: "789" }, error: null })); // evento already paid
+
+    const res = await POST(req({ type: "payment", data: { id: "789" } }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).skipped).toBe(true);
+    expect(enviarWhatsApp).not.toHaveBeenCalled();
   });
 });

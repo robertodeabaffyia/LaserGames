@@ -21,6 +21,7 @@ const METODO_LABELS: Record<string, string> = {
   efectivo: "Efectivo",
   tarjeta: "Tarjeta",
   transferencia: "Transferencia",
+  mercadopago: "Mercado Pago",
 };
 
 const ACCION_LABELS: Record<string, string> = {

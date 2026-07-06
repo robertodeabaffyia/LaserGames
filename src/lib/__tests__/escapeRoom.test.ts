@@ -183,16 +183,6 @@ describe("generarTurnosDisponibles", () => {
     expect(generarTurnosDisponibles({ ...base, duracionBloqueMin: -10, reservasExistentes: [] })).toEqual([]);
   });
 
-  it("returns an empty list when horaInicio is already past horaFin", () => {
-    const turnos = generarTurnosDisponibles({
-      ...base,
-      horaInicio: "23:30",
-      horaFin: "23:00",
-      reservasExistentes: [],
-    });
-    expect(turnos).toEqual([]);
-  });
-
   it("handles HH:MM:SS time strings from Postgres TIME columns", () => {
     const reservasExistentes: ReservaExistente[] = [
       { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "19:30:00", estado: "reservada" },
@@ -205,10 +195,50 @@ describe("generarTurnosDisponibles", () => {
     });
     expect(turnos).toEqual(["18:00", "21:00"]);
   });
+
+  // A horario that closes at/after midnight (e.g. 18:00 → 00:00) is a valid
+  // overnight range, not an inverted/empty one — this is the real config a
+  // user hit in production: 18:00 → 00:00 was producing zero turnos before
+  // this was treated as "18:00 today → 00:00 (24:00) today", a 6h window.
+  it("treats horaFin of 00:00 as midnight — end of an overnight window, not the start", () => {
+    const turnos = generarTurnosDisponibles({
+      ...base,
+      horaInicio: "18:00",
+      horaFin: "00:00",
+      duracionBloqueMin: 90,
+      reservasExistentes: [],
+    });
+    expect(turnos).toEqual(["18:00", "19:30", "21:00", "22:30"]);
+  });
+
+  it("generates turnos past midnight for a horario like 23:00 → 02:00, wrapping the displayed time", () => {
+    const turnos = generarTurnosDisponibles({
+      ...base,
+      horaInicio: "23:00",
+      horaFin: "02:00",
+      duracionBloqueMin: 60,
+      reservasExistentes: [],
+    });
+    expect(turnos).toEqual(["23:00", "00:00", "01:00"]);
+  });
+
+  it("excludes a post-midnight slot that conflicts with an existing overnight reservation", () => {
+    const reservasExistentes: ReservaExistente[] = [
+      { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "00:00", estado: "reservada" },
+    ];
+    const turnos = generarTurnosDisponibles({
+      ...base,
+      horaInicio: "23:00",
+      horaFin: "02:00",
+      duracionBloqueMin: 60,
+      reservasExistentes,
+    });
+    expect(turnos).toEqual(["23:00", "01:00"]);
+  });
 });
 
 describe("horarioEsValido", () => {
-  it("returns true when horaFin is later than horaInicio", () => {
+  it("returns true when horaFin is later than horaInicio (same day)", () => {
     expect(horarioEsValido("18:00", "23:00")).toBe(true);
   });
 
@@ -216,13 +246,17 @@ describe("horarioEsValido", () => {
     expect(horarioEsValido("18:00", "18:00")).toBe(false);
   });
 
-  it("returns false when horaFin is earlier than horaInicio", () => {
-    expect(horarioEsValido("23:00", "18:00")).toBe(false);
+  it("returns true for an overnight range where horaFin is midnight", () => {
+    expect(horarioEsValido("18:00", "00:00")).toBe(true);
+  });
+
+  it("returns true for an overnight range that closes after midnight", () => {
+    expect(horarioEsValido("23:00", "02:00")).toBe(true);
   });
 
   it("handles HH:MM:SS strings from Postgres TIME columns", () => {
     expect(horarioEsValido("18:00:00", "23:00:00")).toBe(true);
-    expect(horarioEsValido("23:00:00", "18:00:00")).toBe(false);
+    expect(horarioEsValido("18:00:00", "00:00:00")).toBe(true);
   });
 });
 
@@ -289,5 +323,53 @@ describe("validarTurnoPersonalizado", () => {
     expect(() =>
       validarTurnoPersonalizado({ ...base, horaInicio: "18:45", reservasExistentes })
     ).not.toThrow();
+  });
+
+  describe("overnight horario (closes at/after midnight)", () => {
+    const overnightBase = {
+      fecha: "2026-07-01",
+      sala_id: "sala-1",
+      horaInicioReservas: "18:00",
+      horaFinReservas: "00:00",
+      duracionBloqueMin: 90,
+    };
+
+    it("allows a custom time that ends exactly at midnight", () => {
+      expect(() =>
+        validarTurnoPersonalizado({ ...overnightBase, horaInicio: "22:30", reservasExistentes: [] })
+      ).not.toThrow();
+    });
+
+    it("rejects a custom time that would extend past midnight", () => {
+      expect(() =>
+        validarTurnoPersonalizado({ ...overnightBase, horaInicio: "23:00", reservasExistentes: [] })
+      ).toThrow(/debe estar entre/);
+    });
+
+    it("accepts a post-midnight custom time when the horario extends past 00:00", () => {
+      // horario 18:00→02:00 (duracion 90): the last valid post-midnight start is 00:30.
+      expect(() =>
+        validarTurnoPersonalizado({
+          ...overnightBase,
+          horaFinReservas: "02:00",
+          horaInicio: "00:15",
+          reservasExistentes: [],
+        })
+      ).not.toThrow();
+    });
+
+    it("detects an overlap with an existing post-midnight reservation", () => {
+      const reservasExistentes: ReservaExistente[] = [
+        { sala_id: "sala-1", fecha: "2026-07-01", hora_inicio: "00:15", estado: "reservada" },
+      ];
+      expect(() =>
+        validarTurnoPersonalizado({
+          ...overnightBase,
+          horaFinReservas: "02:00",
+          horaInicio: "00:00",
+          reservasExistentes,
+        })
+      ).toThrow(/se superpone/);
+    });
   });
 });

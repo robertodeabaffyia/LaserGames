@@ -65,7 +65,6 @@ describe("POST /api/whatsapp/webhook — auth", () => {
     process.env.WEBHOOK_SECRET = "supersecret";
     mockFrom
       .mockReturnValueOnce(chain({ data: null, error: null })) // conversacion lookup
-      .mockReturnValueOnce(chain({ data: [{ id: "s1", nombre: "Sala 1" }], error: null })) // salas
       .mockReturnValueOnce(chain({ data: null, error: null })); // insert conversacion
 
     const res = await POST(req({ from: "549387111", text: "hola" }, "supersecret"));
@@ -82,20 +81,41 @@ describe("POST /api/whatsapp/webhook — mensajes", () => {
     expect(enviarWhatsApp).not.toHaveBeenCalled();
   });
 
-  it("starts a new conversation and replies with the salas menu", async () => {
+  it("starts a new conversation and replies with the main menu", async () => {
     const insertChain = chain({ data: null, error: null });
     mockFrom
       .mockReturnValueOnce(chain({ data: null, error: null })) // conversacion: none yet
-      .mockReturnValueOnce(
-        chain({ data: [{ id: "s1", nombre: "Qué pasó ayer" }, { id: "s2", nombre: "El Conjuro" }], error: null })
-      ) // salas
       .mockReturnValueOnce(insertChain); // insert conversacion
 
     const res = await POST(req({ from: "5493871234567", text: "hola" }));
     expect(res.status).toBe(200);
 
     expect(insertChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ telefono: "5493871234567", estado: "sala" })
+      expect.objectContaining({ telefono: "5493871234567", estado: "menu" })
+    );
+    expect(enviarWhatsApp).toHaveBeenCalledWith(
+      "5493871234567",
+      expect.stringContaining("Escape Room")
+    );
+  });
+
+  it("at the menu, choosing 2 starts the escape flow (salas)", async () => {
+    const updateChain = chain({ data: null, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { id: "conv-1", estado: "menu", datos: {} }, error: null })) // conversacion
+      .mockReturnValueOnce(
+        chain({ data: [{ id: "s1", nombre: "Qué pasó ayer" }, { id: "s2", nombre: "El Conjuro" }], error: null })
+      ) // salas
+      .mockReturnValueOnce(updateChain); // update conversacion
+
+    const res = await POST(req({ from: "5493871234567", text: "2" }));
+    expect(res.status).toBe(200);
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        estado: "sala",
+        datos: expect.objectContaining({ flujo: "escape" }),
+      })
     );
     expect(enviarWhatsApp).toHaveBeenCalledWith(
       "5493871234567",
@@ -103,11 +123,48 @@ describe("POST /api/whatsapp/webhook — mensajes", () => {
     );
   });
 
-  it("continues an existing conversation from its stored state", async () => {
+  it("at the menu, choosing 1 starts the cumpleaños flow (paquetes)", async () => {
+    const updateChain = chain({ data: null, error: null });
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { id: "conv-1", estado: "menu", datos: {} }, error: null })) // conversacion
+      .mockReturnValueOnce(
+        chain({ data: [{ id: "p1", nombre: "Básico", precio: 5000 }], error: null })
+      ) // paquetes
+      .mockReturnValueOnce(updateChain); // update conversacion
+
+    const res = await POST(req({ from: "5493871234567", text: "1" }));
+    expect(res.status).toBe(200);
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        estado: "paquete",
+        datos: expect.objectContaining({ flujo: "cumpleanos" }),
+      })
+    );
+    expect(enviarWhatsApp).toHaveBeenCalledWith(
+      "5493871234567",
+      expect.stringContaining("Básico")
+    );
+  });
+
+  it("re-shows the menu when the option isn't understood", async () => {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { id: "conv-1", estado: "menu", datos: {} }, error: null }))
+      .mockReturnValueOnce(chain({ data: null, error: null }));
+
+    const res = await POST(req({ from: "5493871234567", text: "cualquier cosa" }));
+    expect(res.status).toBe(200);
+    expect(enviarWhatsApp).toHaveBeenCalledWith(
+      "5493871234567",
+      expect.stringContaining("No entendí")
+    );
+  });
+
+  it("continues an escape conversation from its stored state", async () => {
     const updateChain = chain({ data: null, error: null });
     mockFrom
       .mockReturnValueOnce(
-        chain({ data: { id: "conv-1", estado: "sala", datos: {} }, error: null })
+        chain({ data: { id: "conv-1", estado: "sala", datos: { flujo: "escape" } }, error: null })
       ) // conversacion existente en estado sala
       .mockReturnValueOnce(
         chain({ data: [{ id: "s1", nombre: "Qué pasó ayer" }], error: null })
@@ -120,7 +177,7 @@ describe("POST /api/whatsapp/webhook — mensajes", () => {
     expect(updateChain.update).toHaveBeenCalledWith(
       expect.objectContaining({
         estado: "fecha",
-        datos: expect.objectContaining({ sala_id: "s1" }),
+        datos: expect.objectContaining({ sala_id: "s1", flujo: "escape" }),
       })
     );
     expect(enviarWhatsApp).toHaveBeenCalledWith(
@@ -129,10 +186,24 @@ describe("POST /api/whatsapp/webhook — mensajes", () => {
     );
   });
 
+  it("cancelar returns to the main menu", async () => {
+    mockFrom
+      .mockReturnValueOnce(
+        chain({ data: { id: "conv-1", estado: "fecha", datos: { flujo: "escape" } }, error: null })
+      )
+      .mockReturnValueOnce(chain({ data: null, error: null })); // update conversacion
+
+    const res = await POST(req({ from: "5493871234567", text: "cancelar" }));
+    expect(res.status).toBe(200);
+    expect(enviarWhatsApp).toHaveBeenCalledWith(
+      "5493871234567",
+      expect.stringContaining("Escape Room")
+    );
+  });
+
   it("parses the nested Vonage payload shape", async () => {
     mockFrom
       .mockReturnValueOnce(chain({ data: null, error: null }))
-      .mockReturnValueOnce(chain({ data: [{ id: "s1", nombre: "Sala 1" }], error: null }))
       .mockReturnValueOnce(chain({ data: null, error: null }));
 
     const res = await POST(

@@ -212,13 +212,14 @@ describe("PUT /api/escape/config", () => {
     expect((await res.json()).error).toMatch(/posterior/);
   });
 
-  it("returns 400 when hora_fin_reservas is earlier than hora_inicio_reservas", async () => {
+  it("accepts an overnight horario where hora_fin_reservas is earlier in raw clock terms (closes after midnight)", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
-    mockFrom.mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }));
+    mockFrom
+      .mockReturnValueOnce(chain({ data: { rol: "admin" }, error: null }))
+      .mockReturnValueOnce(chain({ data: mockConfig, error: null }));
 
-    const res = await PUT(req("PUT", { ...validBody, hora_inicio_reservas: "20:00", hora_fin_reservas: "18:00" }));
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/posterior/);
+    const res = await PUT(req("PUT", { ...validBody, hora_inicio_reservas: "20:00", hora_fin_reservas: "02:00" }));
+    expect(res.status).toBe(200);
   });
 
   it("returns 400 when sena_minima is negative", async () => {

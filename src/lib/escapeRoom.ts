@@ -55,9 +55,14 @@ export function calcularPrecioReserva(params: CalcularPrecioReservaParams): numb
   return cantidad_personas * precioPorPersona;
 }
 
-/** True if horaFin is strictly later than horaInicio ("HH:MM" or "HH:MM:SS" strings). */
+/**
+ * True unless horaInicio and horaFin are the same instant. A horario that
+ * closes at or after midnight (e.g. 18:00 → 00:00, or 18:00 → 02:00) is a
+ * valid overnight range — see the "overnight" helpers below for how that's
+ * handled in slot generation.
+ */
 export function horarioEsValido(horaInicio: string, horaFin: string): boolean {
-  return horaToMinutos(horaFin) > horaToMinutos(horaInicio);
+  return horaToMinutos(horaFin) !== horaToMinutos(horaInicio);
 }
 
 function horaToMinutos(hora: string): number {
@@ -65,10 +70,33 @@ function horaToMinutos(hora: string): number {
   return h * 60 + m;
 }
 
+/** Wraps a minutes-since-midnight value that may be >= 1440 back into 00:00–23:59. */
 function minutosToHora(minutos: number): string {
-  const h = Math.floor(minutos / 60);
-  const m = minutos % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  const m = ((minutos % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+/**
+ * A horario like 18:00 → 00:00 (or → 02:00) closes after midnight. Since
+ * horaToMinutos alone can't tell "0" (midnight, the end of the range) from
+ * "0" (midnight, the start of a new day), the closing minute is pushed past
+ * 1440 whenever it's not strictly later than the opening minute in raw
+ * same-day terms — turning the range into a single continuous window.
+ */
+function finExtendido(inicioMin: number, finMinCrudo: number): number {
+  return finMinCrudo <= inicioMin ? finMinCrudo + 1440 : finMinCrudo;
+}
+
+/**
+ * Shifts a raw (0–1439) minutes-since-midnight value into the same extended
+ * space as finExtendido, so times just after midnight (e.g. an 00:30 booking
+ * on an overnight 18:00→02:00 horario) compare correctly as "later than"
+ * the evening start time instead of "earlier".
+ */
+function aEspacioExtendido(inicioMin: number, minutos: number): number {
+  return minutos < inicioMin ? minutos + 1440 : minutos;
 }
 
 export interface ReservaExistente {
@@ -127,8 +155,10 @@ export function generarTurnosDisponibles(params: GenerarTurnosDisponiblesParams)
   if (duracionBloqueMin <= 0) return [];
 
   const inicioMin = horaToMinutos(horaInicio);
-  const finMin = horaToMinutos(horaFin);
-  const ocupados = ocupadosMinutos(fecha, sala_id, reservasExistentes);
+  const finMin = finExtendido(inicioMin, horaToMinutos(horaFin));
+  const ocupados = ocupadosMinutos(fecha, sala_id, reservasExistentes).map((m) =>
+    aEspacioExtendido(inicioMin, m)
+  );
 
   const turnos: string[] = [];
   for (let t = inicioMin; t + duracionBloqueMin <= finMin; t += duracionBloqueMin) {
@@ -168,10 +198,11 @@ export function validarTurnoPersonalizado(params: ValidarTurnoPersonalizadoParam
     reservasExistentes,
   } = params;
 
-  const inicio = horaToMinutos(horaInicio);
-  const fin = inicio + duracionBloqueMin;
   const rangoInicio = horaToMinutos(horaInicioReservas);
-  const rangoFin = horaToMinutos(horaFinReservas);
+  const rangoFin = finExtendido(rangoInicio, horaToMinutos(horaFinReservas));
+
+  const inicio = aEspacioExtendido(rangoInicio, horaToMinutos(horaInicio));
+  const fin = inicio + duracionBloqueMin;
 
   if (inicio < rangoInicio || fin > rangoFin) {
     throw new Error(
@@ -179,7 +210,9 @@ export function validarTurnoPersonalizado(params: ValidarTurnoPersonalizadoParam
     );
   }
 
-  const ocupados = ocupadosMinutos(fecha, sala_id, reservasExistentes);
+  const ocupados = ocupadosMinutos(fecha, sala_id, reservasExistentes).map((m) =>
+    aEspacioExtendido(rangoInicio, m)
+  );
   if (seSuperpone(inicio, duracionBloqueMin, ocupados)) {
     throw new Error("Este horario se superpone con otra reserva existente en esa sala");
   }

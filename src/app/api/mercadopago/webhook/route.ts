@@ -30,6 +30,53 @@ async function resetConversacion(supabase: SupabaseAdmin, telefono: string | nul
     .eq("telefono", telefono.replace(/\D/g, ""));
 }
 
+/** The single-tenant owner's usuario_id, for stamping cash movements. */
+async function resolverUsuarioId(supabase: SupabaseAdmin): Promise<string | null> {
+  const { data } = await supabase
+    .from("configuraciones")
+    .select("usuario_id")
+    .limit(1)
+    .maybeSingle();
+  return (data as { usuario_id?: string } | null)?.usuario_id ?? null;
+}
+
+/**
+ * Records a seña paid via Mercado Pago as an income movement in the cash flow,
+ * mirroring what POST /api/pagos does for manual payments — without this, seña
+ * income collected through the WhatsApp bot never reaches the Caja or the
+ * financial reports/KPIs.
+ */
+async function registrarIngresoCaja(
+  supabase: SupabaseAdmin,
+  params: {
+    usuarioId: string | null;
+    monto: number;
+    descripcion: string;
+    fecha: string; // "YYYY-MM-DD"
+    eventoId?: string | null;
+    pagoId?: string | null;
+  }
+): Promise<void> {
+  if (!params.monto || params.monto <= 0) return;
+  await supabase.from("movimientos_caja").insert({
+    usuario_id: params.usuarioId,
+    tipo: "ingreso",
+    categoria: "pago_evento",
+    descripcion: params.descripcion,
+    monto: params.monto,
+    fecha: params.fecha,
+    es_repetible: false,
+    frecuencia_repeticion: null,
+    evento_id: params.eventoId ?? null,
+    pago_id: params.pagoId ?? null,
+    empleado_id: null,
+  });
+}
+
+function hoyISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 /**
  * Confirms an escape reservation. Returns a response when the reservation
  * exists (newly confirmed or an idempotent duplicate), or null when the
@@ -68,6 +115,15 @@ async function confirmarEscape(
 
   const contacto = reserva.contacto as unknown as { nombre: string; telefono: string | null } | null;
   const sala = reserva.sala as unknown as { nombre: string } | null;
+
+  // Escape reservations aren't `eventos` and have no `pagos` row, so the cash
+  // entry links to neither — it still records the income in the Caja/reports.
+  await registrarIngresoCaja(supabase, {
+    usuarioId: await resolverUsuarioId(supabase),
+    monto: Number(reserva.sena_monto ?? 0),
+    descripcion: `Seña Escape Room (Mercado Pago) — ${sala?.nombre ?? ""} ${formatFecha(reserva.fecha)}`.trim(),
+    fecha: hoyISO(),
+  });
 
   await resetConversacion(supabase, contacto?.telefono ?? null);
   if (contacto?.telefono) {
@@ -109,30 +165,39 @@ async function confirmarCumple(
 
   // The seña becomes a real payment, so the event balance/estado stay in sync
   // with the rest of the system (manual pagos, reports, etc.).
-  const { error: pagoError } = await supabase.from("pagos").insert({
-    evento_id: evento.id,
-    monto: evento.sena_monto ?? 0,
-    metodo: "mercadopago",
-    notas: "Seña pagada por WhatsApp (Mercado Pago)",
-  });
-  if (pagoError) {
-    return NextResponse.json({ error: pagoError.message }, { status: 500 });
+  const { data: pago, error: pagoError } = await supabase
+    .from("pagos")
+    .insert({
+      evento_id: evento.id,
+      monto: evento.sena_monto ?? 0,
+      metodo: "mercadopago",
+      notas: "Seña pagada por WhatsApp (Mercado Pago)",
+    })
+    .select("id")
+    .single();
+  if (pagoError || !pago) {
+    return NextResponse.json({ error: pagoError?.message ?? "No se pudo registrar el pago" }, { status: 500 });
   }
 
   await supabase.from("eventos").update({ mp_payment_id: paymentId }).eq("id", evento.id);
 
-  // Resolve the owner's usuario_id (single-tenant) so the seña threshold from
-  // configuraciones is applied when recomputing the estado.
-  const { data: cfg } = await supabase
-    .from("configuraciones")
-    .select("usuario_id")
-    .limit(1)
-    .maybeSingle();
-  const usuarioId = (cfg as { usuario_id?: string } | null)?.usuario_id ?? "";
-  await recalcularEstadoEvento(supabase, evento.id, usuarioId);
-
   const cliente = evento.cliente as unknown as { nombre: string; telefono: string | null } | null;
   const paquete = evento.paquete as unknown as { nombre: string } | null;
+
+  // Mirror POST /api/pagos: record the income in the Caja, linked to the
+  // evento + pago so an eventual deletion can reconcile it.
+  const usuarioId = await resolverUsuarioId(supabase);
+  await registrarIngresoCaja(supabase, {
+    usuarioId,
+    monto: Number(evento.sena_monto ?? 0),
+    descripcion: `Seña cumpleaños (Mercado Pago) — ${evento.nombre_festejado}`,
+    fecha: hoyISO(),
+    eventoId: evento.id,
+    pagoId: pago.id,
+  });
+
+  // Same owner id drives the seña threshold when recomputing the estado.
+  await recalcularEstadoEvento(supabase, evento.id, usuarioId ?? "");
 
   await resetConversacion(supabase, cliente?.telefono ?? null);
   if (cliente?.telefono) {

@@ -5,6 +5,8 @@ export interface KPIs {
   eventos_mes: number;
   pagos_pendientes: number;
   cumpleanos_proximos: number;
+  /** Escape Room reservations (non-cancelled) whose date falls in the current month. */
+  reservas_escape_mes: number;
 }
 
 export interface ResumenDia {

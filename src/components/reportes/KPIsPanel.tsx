@@ -72,6 +72,12 @@ export default function KPIsPanel() {
         icon="🎂"
         sub="próximos 30 días"
       />
+      <KPICard
+        label="Reservas Escape (mes)"
+        value={kpis.reservas_escape_mes}
+        color="blue"
+        icon="🗝️"
+      />
     </div>
   );
 }

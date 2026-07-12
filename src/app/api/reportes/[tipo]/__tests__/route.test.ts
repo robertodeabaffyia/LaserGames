@@ -96,8 +96,10 @@ describe("GET /api/reportes/kpis", () => {
   it("returns correct KPI totals (ingresos from pagos, egresos from movimientos_caja)", async () => {
     mockFrom
       .mockReturnValueOnce(chain({ data: pagos, error: null }))              // pagos (ingresos)
+      .mockReturnValueOnce(chain({ data: [{ sena_monto: 500 }], error: null })) // escape señas pagadas
       .mockReturnValueOnce(chain({ data: egresos, error: null }))            // movimientos_caja (egresos)
       .mockReturnValueOnce(chain({ data: null, error: null, count: 5 }))    // eventos count
+      .mockReturnValueOnce(chain({ data: null, error: null, count: 3 }))    // escape reservas count
       .mockReturnValueOnce(chain({ data: [{ id: "ev-1" }, { id: "ev-2" }], error: null })) // pendientes
       .mockReturnValueOnce(chain({ data: clientes, error: null }))           // clientes
       .mockReturnValueOnce(chain({ data: hijos, error: null }));             // hijos
@@ -105,11 +107,12 @@ describe("GET /api/reportes/kpis", () => {
     const res = await GET(req("kpis"), params("kpis"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    // 3000 + 1500 (discount-adjusted) = 4500
-    expect(body.ingresos_mes).toBe(4500);
+    // 3000 + 1500 (discount-adjusted) + 500 (escape seña) = 5000
+    expect(body.ingresos_mes).toBe(5000);
     expect(body.egresos_mes).toBe(800);
-    expect(body.ganancia_neta).toBe(3700);
+    expect(body.ganancia_neta).toBe(4200);
     expect(body.eventos_mes).toBe(5);
+    expect(body.reservas_escape_mes).toBe(3);
     expect(body.pagos_pendientes).toBe(2);
     expect(body.cumpleanos_proximos).toBe(2); // 1990-05-25 and 2018-05-30
   });
@@ -124,6 +127,7 @@ describe("GET /api/reportes/kpis", () => {
   it("returns 500 on egresos DB error", async () => {
     mockFrom
       .mockReturnValueOnce(chain({ data: [], error: null }))                 // pagos OK
+      .mockReturnValueOnce(chain({ data: [], error: null }))                 // escape señas OK
       .mockReturnValueOnce(chain({ data: null, error: { message: "DB fail" } })); // egresos fail
 
     const res = await GET(req("kpis"), params("kpis"));
@@ -133,8 +137,10 @@ describe("GET /api/reportes/kpis", () => {
   it("handles empty data gracefully", async () => {
     mockFrom
       .mockReturnValueOnce(chain({ data: [], error: null }))                 // pagos
+      .mockReturnValueOnce(chain({ data: [], error: null }))                 // escape señas
       .mockReturnValueOnce(chain({ data: [], error: null }))                 // egresos
       .mockReturnValueOnce(chain({ data: null, error: null, count: 0 }))    // eventos count
+      .mockReturnValueOnce(chain({ data: null, error: null, count: 0 }))    // escape reservas count
       .mockReturnValueOnce(chain({ data: [], error: null }))                 // pendientes
       .mockReturnValueOnce(chain({ data: [], error: null }))                 // clientes
       .mockReturnValueOnce(chain({ data: [], error: null }));                // hijos
@@ -145,6 +151,7 @@ describe("GET /api/reportes/kpis", () => {
     expect(body.ingresos_mes).toBe(0);
     expect(body.ganancia_neta).toBe(0);
     expect(body.cumpleanos_proximos).toBe(0);
+    expect(body.reservas_escape_mes).toBe(0);
   });
 });
 

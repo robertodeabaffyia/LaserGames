@@ -5,11 +5,15 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 import ReservaForm from "@/components/escapeRoom/ReservaForm";
 import ReservaList from "@/components/escapeRoom/ReservaList";
+import AgendaDia from "@/components/escapeRoom/AgendaDia";
 import ReservaEditModal from "@/components/escapeRoom/ReservaEditModal";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import type { EscapeReservaConRelaciones } from "@/types/escapeRoom";
 
+type Vista = "lista" | "agenda";
+
 export default function EscapeReservasPage() {
+  const [vista, setVista] = useState<Vista>("lista");
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [editing, setEditing] = useState<EscapeReservaConRelaciones | null>(null);
@@ -56,8 +60,27 @@ export default function EscapeReservasPage() {
         </div>
       )}
 
+      {/* View switcher */}
+      <div className="flex gap-1 mb-5 rounded-lg border border-gray-800 bg-gray-900/50 p-1 w-fit">
+        {(["lista", "agenda"] as Vista[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => setVista(v)}
+            className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              vista === v ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
+            }`}
+          >
+            {v === "lista" ? "Lista" : "Agenda del día"}
+          </button>
+        ))}
+      </div>
+
       <ErrorBoundary>
-        <ReservaList onEdit={setEditing} onDelete={handleDelete} refreshKey={refreshKey} />
+        {vista === "lista" ? (
+          <ReservaList onEdit={setEditing} onDelete={handleDelete} refreshKey={refreshKey} />
+        ) : (
+          <AgendaDia onEdit={setEditing} refreshKey={refreshKey} />
+        )}
       </ErrorBoundary>
 
       {editing && <ReservaEditModal reserva={editing} onClose={handleEditClose} />}

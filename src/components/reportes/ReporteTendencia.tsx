@@ -32,14 +32,15 @@ const VENTANAS = [6, 12, 24] as const;
 export default function ReporteTendencia() {
   const [meses, setMeses] = useState<(typeof VENTANAS)[number]>(12);
   const [data, setData] = useState<TReporteTendencia | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    let active = true;
     fetch(`/api/reportes/tendencia?meses=${meses}`)
       .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
+      .then((d) => { if (active) setData(d); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [meses]);
 
   const chartData = (data?.meses ?? []).map((m) => ({

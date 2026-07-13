@@ -83,10 +83,13 @@ describe("POST /api/mercadopago/webhook", () => {
       externalReference: "r1",
     });
     const updateReservaChain = chain({ data: null, error: null });
+    const cajaChain = chain({ data: null, error: null });
     const updateConvChain = chain({ data: null, error: null });
     mockFrom
       .mockReturnValueOnce(chain({ data: mockReserva, error: null })) // fetch reserva
       .mockReturnValueOnce(updateReservaChain) // update reserva
+      .mockReturnValueOnce(chain({ data: { usuario_id: "u1" }, error: null })) // resolverUsuarioId
+      .mockReturnValueOnce(cajaChain) // movimientos_caja insert
       .mockReturnValueOnce(updateConvChain); // reset conversacion
 
     const res = await POST(req({ type: "payment", data: { id: "123" } }));
@@ -99,6 +102,10 @@ describe("POST /api/mercadopago/webhook", () => {
         mp_payment_id: "123",
         estado: "reservada",
       })
+    );
+    // The seña must land in the Caja as an income movement.
+    expect(cajaChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ tipo: "ingreso", categoria: "pago_evento", monto: 10000 })
     );
     expect(updateConvChain.update).toHaveBeenCalledWith(
       expect.objectContaining({ estado: "inicio", datos: {} })
@@ -154,9 +161,11 @@ describe("POST /api/mercadopago/webhook", () => {
       externalReference: "r1",
     });
     mockFrom
-      .mockReturnValueOnce(chain({ data: mockReserva, error: null }))
-      .mockReturnValueOnce(chain({ data: null, error: null }))
-      .mockReturnValueOnce(chain({ data: null, error: null }));
+      .mockReturnValueOnce(chain({ data: mockReserva, error: null })) // fetch reserva
+      .mockReturnValueOnce(chain({ data: null, error: null })) // update reserva
+      .mockReturnValueOnce(chain({ data: { usuario_id: "u1" }, error: null })) // resolverUsuarioId
+      .mockReturnValueOnce(chain({ data: null, error: null })) // caja insert
+      .mockReturnValueOnce(chain({ data: null, error: null })); // reset conversacion
 
     const badBodyReq = new NextRequest(
       "http://localhost/api/mercadopago/webhook?topic=payment&id=456",
@@ -200,13 +209,15 @@ describe("POST /api/mercadopago/webhook — cumpleaños", () => {
       status: "approved",
       externalReference: "ev1",
     });
-    const insertPagoChain = chain({ data: null, error: null });
+    const insertPagoChain = chain({ data: { id: "pago1" }, error: null });
+    const cajaChain = chain({ data: null, error: null });
     mockFrom
       .mockReturnValueOnce(chain({ data: null, error: null })) // escape_reservas: none → fall through
       .mockReturnValueOnce(chain({ data: mockEvento, error: null })) // eventos fetch
-      .mockReturnValueOnce(insertPagoChain) // insert pago
+      .mockReturnValueOnce(insertPagoChain) // insert pago (returns id)
       .mockReturnValueOnce(chain({ data: null, error: null })) // update evento mp_payment_id
-      .mockReturnValueOnce(chain({ data: { usuario_id: "u1" }, error: null })) // configuraciones
+      .mockReturnValueOnce(chain({ data: { usuario_id: "u1" }, error: null })) // resolverUsuarioId
+      .mockReturnValueOnce(cajaChain) // movimientos_caja insert
       // recalcularEstadoEvento internals:
       .mockReturnValueOnce(chain({ data: { id: "ev1", precio_total: 50000, estado: "pendiente" }, error: null }))
       .mockReturnValueOnce(chain({ data: [{ monto: 15000, monto_final: null }], error: null }))
@@ -222,6 +233,16 @@ describe("POST /api/mercadopago/webhook — cumpleaños", () => {
 
     expect(insertPagoChain.insert).toHaveBeenCalledWith(
       expect.objectContaining({ evento_id: "ev1", monto: 15000, metodo: "mercadopago" })
+    );
+    // The seña must also land in the Caja, linked to the evento + pago.
+    expect(cajaChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: "ingreso",
+        categoria: "pago_evento",
+        monto: 15000,
+        evento_id: "ev1",
+        pago_id: "pago1",
+      })
     );
     expect(enviarWhatsApp).toHaveBeenCalledWith(
       "+5493871234567",

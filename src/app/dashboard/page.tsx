@@ -3,6 +3,7 @@
 import BirthdayWidget from "@/components/dashboard/BirthdayWidget";
 import PendingEventsWidget from "@/components/dashboard/PendingEventsWidget";
 import PagosWidget from "@/components/dashboard/PagosWidget";
+import EscapeReservasWidget from "@/components/dashboard/EscapeReservasWidget";
 import dynamic from "next/dynamic";
 
 const KPIsPanel = dynamic(() => import("@/components/reportes/KPIsPanel"), { ssr: false });
@@ -16,10 +17,11 @@ export default function DashboardPage() {
       <KPIsPanel />
 
       {/* Existing widgets */}
-      <div className="grid gap-6 sm:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <BirthdayWidget />
         <PendingEventsWidget />
         <PagosWidget />
+        <EscapeReservasWidget />
       </div>
     </div>
   );

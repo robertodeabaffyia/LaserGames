@@ -78,11 +78,27 @@ async function handleKpis(supabase: any): Promise<KPIs> {
 
   if (pagosErr) throw new Error(pagosErr.message);
 
-  const ingresos_mes = (pagosDelMes ?? []).reduce(
+  const ingresos_pagos = (pagosDelMes ?? []).reduce(
     (s: number, p: { monto: number; monto_final: number | null }) =>
       s + (p.monto_final ?? p.monto),
     0
   );
+
+  // Escape señas are tracked on escape_reservas (not `pagos`), so add the
+  // paid ones of this month so "Ingresos del mes" reflects the whole business.
+  const { data: escapePagadas } = await supabase
+    .from("escape_reservas")
+    .select("sena_monto")
+    .eq("sena_pagada", true)
+    .gte("fecha", desde)
+    .lte("fecha", hasta);
+
+  const ingresos_escape = (escapePagadas ?? []).reduce(
+    (s: number, r: { sena_monto: number | null }) => s + (r.sena_monto ?? 0),
+    0
+  );
+
+  const ingresos_mes = ingresos_pagos + ingresos_escape;
 
   // egresos_mes: manual expense entries stay in movimientos_caja
   const { data: egresosDelMes, error: egresosErr } = await supabase
@@ -104,6 +120,13 @@ async function handleKpis(supabase: any): Promise<KPIs> {
     .select("id", { count: "exact", head: true })
     .gte("fecha_evento", `${desde}T00:00:00`)
     .lte("fecha_evento", `${hasta}T23:59:59`);
+
+  const { count: reservas_escape_mes } = await supabase
+    .from("escape_reservas")
+    .select("id", { count: "exact", head: true })
+    .not("estado", "eq", "cancelada")
+    .gte("fecha", desde)
+    .lte("fecha", hasta);
 
   const { data: pendientes } = await supabase
     .from("eventos")
@@ -130,6 +153,7 @@ async function handleKpis(supabase: any): Promise<KPIs> {
     eventos_mes: eventos_mes ?? 0,
     pagos_pendientes: (pendientes ?? []).length,
     cumpleanos_proximos,
+    reservas_escape_mes: reservas_escape_mes ?? 0,
   };
 }
 

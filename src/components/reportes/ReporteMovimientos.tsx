@@ -24,15 +24,16 @@ export default function ReporteMovimientos() {
   const [periodo, setPeriodo] = useState<Periodo>("mes");
   const [customRango, setCustomRango] = useState({ desde: "", hasta: "" });
   const [data, setData] = useState<TReporteMovimientos | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const { desde, hasta } = rangoFromPeriodo(periodo, customRango);
-    setLoading(true);
+    let active = true;
     fetch(`/api/reportes/movimientos?desde=${desde}&hasta=${hasta}`)
       .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
+      .then((d) => { if (active) setData(d); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [periodo, customRango]);
 
   const ingresosCats = (data?.por_categoria ?? []).filter((c) => c.tipo === "ingreso");

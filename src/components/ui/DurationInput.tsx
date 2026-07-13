@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { parseHoras, parseMinutos, trimLeadingZeros, MAX_HORAS, MAX_MINUTOS } from "@/lib/duration";
 
 interface DurationInputProps {
@@ -38,9 +38,20 @@ export default function DurationInput({
   const [errorH, setErrorH] = useState<string | null>(null);
   const [errorM, setErrorM] = useState<string | null>(null);
 
-  // Keep raw values in sync when the parent resets the controlled value.
-  useEffect(() => { setRawH(String(horas)); }, [horas]);
-  useEffect(() => { setRawM(String(minutos)); }, [minutos]);
+  // Keep raw values in sync when the parent resets the controlled prop, using
+  // the React-recommended "adjust state during render" pattern (tracking the
+  // previous prop) instead of an effect — avoids an extra render and the
+  // set-state-in-effect lint rule.
+  const [prevHoras, setPrevHoras] = useState(horas);
+  if (horas !== prevHoras) {
+    setPrevHoras(horas);
+    setRawH(String(horas));
+  }
+  const [prevMinutos, setPrevMinutos] = useState(minutos);
+  if (minutos !== prevMinutos) {
+    setPrevMinutos(minutos);
+    setRawM(String(minutos));
+  }
 
   // ── Horas ────────────────────────────────────────────────────────────────
   function handleHorasChange(raw: string) {

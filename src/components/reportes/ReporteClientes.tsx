@@ -19,15 +19,16 @@ export default function ReporteClientes() {
   const [periodo, setPeriodo] = useState<Periodo>("anio");
   const [customRango, setCustomRango] = useState({ desde: "", hasta: "" });
   const [data, setData] = useState<TReporteClientes | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const { desde, hasta } = rangoFromPeriodo(periodo, customRango);
-    setLoading(true);
+    let active = true;
     fetch(`/api/reportes/clientes?desde=${desde}&hasta=${hasta}`)
       .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
+      .then((d) => { if (active) setData(d); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [periodo, customRango]);
 
   const ranking: ClienteRanking[] = data?.ranking ?? [];

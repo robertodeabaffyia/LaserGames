@@ -22,15 +22,16 @@ export default function ReporteSummary() {
   const [periodo, setPeriodo] = useState<Periodo>("mes");
   const [customRango, setCustomRango] = useState({ desde: "", hasta: "" });
   const [data, setData] = useState<ReporteResumen | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const { desde, hasta } = rangoFromPeriodo(periodo, customRango);
-    setLoading(true);
+    let active = true;
     fetch(`/api/reportes/resumen?desde=${desde}&hasta=${hasta}`)
       .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
+      .then((d) => { if (active) setData(d); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [periodo, customRango]);
 
   const chartData = (data?.por_dia ?? []).map((d) => ({

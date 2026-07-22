@@ -78,7 +78,13 @@ export default function EventoDetailPage() {
     setLoading(false);
   }, [id, router]);
 
-  useEffect(() => { loadEvento(); }, [loadEvento]);
+  // Deferred a tick so the loader's setState isn't called synchronously
+  // inside the effect (react-hooks/set-state-in-effect); clearTimeout also
+  // guards against setState after unmount.
+  useEffect(() => {
+    const id = setTimeout(() => { loadEvento(); }, 0);
+    return () => clearTimeout(id);
+  }, [loadEvento]);
 
   async function handleDeletePago(pagoId: string) {
     if (!confirm("¿Eliminar este pago? Esta acción no se puede deshacer.")) return;

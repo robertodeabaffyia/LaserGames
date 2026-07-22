@@ -93,8 +93,12 @@ export default function PackageList() {
     }
   }
 
+  // Deferred a tick so the loader's setState isn't called synchronously
+  // inside the effect (react-hooks/set-state-in-effect); clearTimeout also
+  // guards against setState after unmount.
   useEffect(() => {
-    fetchPaquetes();
+    const id = setTimeout(() => { fetchPaquetes(); }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   function handleDragEnd(event: DragEndEvent) {

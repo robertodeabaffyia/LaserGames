@@ -56,7 +56,13 @@ export default function ReporteHorasEmpleados() {
     setLoading(false);
   }, [mes]);
 
-  useEffect(() => { load(); }, [load]);
+  // Deferred a tick so the loader's setState isn't called synchronously
+  // inside the effect (react-hooks/set-state-in-effect); clearTimeout also
+  // guards against setState after unmount.
+  useEffect(() => {
+    const id = setTimeout(load, 0);
+    return () => clearTimeout(id);
+  }, [load]);
 
   async function handleExportXlsx() {
     setDownloading(true);

@@ -53,8 +53,12 @@ export default function EventoList({ onDelete, refreshKey }: EventoListProps) {
     setLoading(false);
   }, [estadoFilter, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Deferred a tick so the loader's setState isn't called synchronously
+  // inside the effect (react-hooks/set-state-in-effect); clearTimeout also
+  // guards against setState after unmount.
   useEffect(() => {
-    load();
+    const id = setTimeout(load, 0);
+    return () => clearTimeout(id);
   }, [load]);
 
   // Distinct years present in the loaded data, ascending

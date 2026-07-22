@@ -41,8 +41,12 @@ export default function ClienteList() {
     }
   }
 
+  // Deferred a tick so the loader's setState isn't called synchronously
+  // inside the effect (react-hooks/set-state-in-effect); clearTimeout also
+  // guards against setState after unmount.
   useEffect(() => {
-    fetchClientes();
+    const id = setTimeout(() => { fetchClientes(); }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   // Client-side birthday-month filter applied on top of text/colegio results

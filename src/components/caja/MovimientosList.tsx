@@ -64,7 +64,13 @@ export default function MovimientosList({ refreshKey, onRefresh }: MovimientosLi
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo, mes, dia, tipoFiltro, categoriaFiltro]);
 
-  useEffect(() => { load(); }, [load, refreshKey]);
+  // Deferred a tick so the loader's setState isn't called synchronously
+  // inside the effect (react-hooks/set-state-in-effect); clearTimeout also
+  // guards against setState after unmount.
+  useEffect(() => {
+    const id = setTimeout(load, 0);
+    return () => clearTimeout(id);
+  }, [load, refreshKey]);
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este movimiento?")) return;

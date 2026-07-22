@@ -487,13 +487,6 @@ describe("POST /api/pagos — quien_recibio", () => {
 // ── POST — transferencia recargo ──────────────────────────────────────────────
 
 describe("POST /api/pagos — transferencia recargo", () => {
-  function setupMocks(pagoData = mockPago) {
-    mockFrom
-      .mockReturnValueOnce(chain({ data: mockEvento, error: null }))
-      .mockReturnValueOnce(chain({ data: mockConfig, error: null }))
-      .mockReturnValueOnce(chain({ data: pagoData, error: null }))
-      .mockReturnValueOnce(chain({ data: null, error: null }));
-  }
 
   it("stores recargo_pct from config for transferencia", async () => {
     const insertChain = chain({

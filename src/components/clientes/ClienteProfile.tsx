@@ -7,6 +7,7 @@ import ClienteForm from "./ClienteForm";
 import HijoForm from "@/components/hijos/HijoForm";
 import { formatFecha, formatDiaMes } from "@/lib/fecha";
 import { formatMoneda } from "@/lib/moneda";
+import { calcularEdad } from "@/lib/validaciones";
 
 interface ClienteProfileProps {
   clienteId: string;
@@ -43,9 +44,13 @@ export default function ClienteProfile({ clienteId }: ClienteProfileProps) {
     }
   }
 
+  // Deferred a tick so the loader's setState isn't called synchronously
+  // inside the effect (react-hooks/set-state-in-effect); clearTimeout also
+  // guards against setState after unmount.
   useEffect(() => {
-    fetchPerfil();
-  }, [clienteId]);
+    const id = setTimeout(() => { fetchPerfil(); }, 0);
+    return () => clearTimeout(id);
+  }, [clienteId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleDeleteHijo(hijoId: string) {
     if (!confirm("¿Eliminar este hijo/a?")) return;
@@ -112,10 +117,7 @@ export default function ClienteProfile({ clienteId }: ClienteProfileProps) {
         ) : (
           <ul className="divide-y divide-gray-800">
             {perfil.hijos.map((h) => {
-              const edad = Math.floor(
-                (Date.now() - new Date(h.fecha_nacimiento + "T12:00:00").getTime()) /
-                  (365.25 * 24 * 3600 * 1000)
-              );
+              const edad = calcularEdad(h.fecha_nacimiento);
               return (
                 <li key={h.id} className="flex items-center justify-between py-3">
                   <div>

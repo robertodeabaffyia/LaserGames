@@ -33,7 +33,13 @@ export default function HistorialNotificaciones() {
     setLoading(false);
   }, [mes, tipoFiltro, statusFiltro]);
 
-  useEffect(() => { load(); }, [load]);
+  // Deferred a tick so the loader's setState isn't called synchronously
+  // inside the effect (react-hooks/set-state-in-effect); clearTimeout also
+  // guards against setState after unmount.
+  useEffect(() => {
+    const id = setTimeout(load, 0);
+    return () => clearTimeout(id);
+  }, [load]);
 
   const enviados = historial.filter((h) => h.status === "enviado").length;
   const fallidos = historial.filter((h) => h.status === "fallido").length;

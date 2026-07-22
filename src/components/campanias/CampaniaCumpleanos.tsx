@@ -70,7 +70,13 @@ export default function CampaniaCumpleanos() {
     }
   }, [dias, canal]);
 
-  useEffect(() => { fetchTargets(); }, [fetchTargets]);
+  // Deferred a tick so the loader's setState isn't called synchronously
+  // inside the effect (react-hooks/set-state-in-effect); clearTimeout also
+  // guards against setState after unmount.
+  useEffect(() => {
+    const id = setTimeout(fetchTargets, 0);
+    return () => clearTimeout(id);
+  }, [fetchTargets]);
 
   // ── Selection helpers ───────────────────────────────────────────────────────
   function toggleAll() {

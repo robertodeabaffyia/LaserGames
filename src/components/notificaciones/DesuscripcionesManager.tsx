@@ -24,7 +24,13 @@ export default function DesuscripcionesManager() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, [tipoFiltro]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Deferred a tick so the loader's setState isn't called synchronously
+  // inside the effect (react-hooks/set-state-in-effect); clearTimeout also
+  // guards against setState after unmount.
+  useEffect(() => {
+    const id = setTimeout(load, 0);
+    return () => clearTimeout(id);
+  }, [tipoFiltro]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleReactivar(d: DesuscripcionConCliente) {
     if (!confirm(`¿Reactivar notificaciones de "${NOTIFICACION_TIPO_LABELS[d.tipo_notificacion]}" para ${d.cliente?.nombre ?? d.cliente_id}?`)) return;

@@ -17,15 +17,17 @@ export default function HistorialRegistros({ empleado }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    setPage(1);
-    setLoading(true);
+    let active = true;
     fetch(`/api/registros-horas?empleado_id=${empleado.id}`)
       .then((r) => r.json())
       .then((data: RegistroHorasConEmpleado[]) => {
+        if (!active) return;
         setRegistros(Array.isArray(data) ? data : []);
+        setPage(1);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [empleado.id]);
 
   async function handleDelete(id: string) {

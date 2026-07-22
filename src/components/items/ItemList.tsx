@@ -33,7 +33,10 @@ export default function ItemList() {
     }
   }
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => {
+    const id = setTimeout(fetchItems, 0);
+    return () => clearTimeout(id);
+  }, []);
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este item?")) return;

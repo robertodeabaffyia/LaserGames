@@ -18,7 +18,13 @@ export default function NotificacionesList() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  // Deferred a tick so the loader's setState isn't called synchronously
+  // inside the effect (react-hooks/set-state-in-effect); clearTimeout also
+  // guards against setState after unmount.
+  useEffect(() => {
+    const id = setTimeout(load, 0);
+    return () => clearTimeout(id);
+  }, []);
 
   async function toggleHabilitada(config: NotificacionConfig) {
     await fetch(`/api/notificaciones-config/${config.id}`, {
